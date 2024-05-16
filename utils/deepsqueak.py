@@ -11,6 +11,7 @@ def call_mat_stim_trial_loader(
     acceptable_call_labels=acceptable_call_labels,
     calls_index_name='calls_index',
     stims_index_name='stims_index',
+    min_latency=0,
     verbose = True
 ):
     '''
@@ -42,8 +43,11 @@ def call_mat_stim_trial_loader(
     stim_trials['call_times_stim_aligned'] = stim_trials.apply(_get_call_times, calls_df=calls, stimulus_aligned=True, axis=1)
     
     stim_trials['n_calls'] = [sum(calls[:,0] > 0) if len(calls)>0 else 0 for calls in stim_trials['call_times_stim_aligned']]
-    
-    stim_trials['latency_s'] = [np.min(calls[:,0]) if len(calls)>0 else np.nan for calls in stim_trials['call_times_stim_aligned']]
+
+    onsets = [calls[:, 0] if len(calls) > 0 else np.nan for calls in stim_trials['call_times_stim_aligned']]  # get all onsets for each trial, nan if no calls.
+    stim_trials['latency_s'] = [np.min(trial[trial > min_latency]) if ~np.isnan(trial).any() else np.nan for trial in onsets]  # min of positive trials
+
+    # stim_trials['latency_s'] = [np.min(calls[:,0]) if len(calls)>0 else np.nan for calls in stim_trials['call_times_stim_aligned']]
 
     # NOTE: does not just count call indices in `calls_in_range`, which can include calls that have onset before stimulus.
 

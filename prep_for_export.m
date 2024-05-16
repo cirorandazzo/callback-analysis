@@ -7,8 +7,12 @@
 % 
 
 clear
-files = dir("/Volumes/AnxietyBU/callbacks/detections/*.mat");
-filenames = arrayfun(@(x) [x.folder '/' x.name], files, UniformOutput=false);
+% all files in a directory
+% files = dir("/Volumes/AnxietyBU/callbacks/detections/*.mat");
+% filenames = arrayfun(@(x) [x.folder '/' x.name], files, UniformOutput=false);
+
+% or just specific .mats
+filenames = {'/Volumes/AnxietyBU/callbacks/detections/or60rd49-d1-20240425115050-Block1.mat'};
 
 save_folder = './data/processed_mats';
 save_suffix = '-PROCESSED';
