@@ -8,12 +8,12 @@
 
 clear
 % all files in a directory
-% files = dir("/Volumes/AnxietyBU/callbacks/detections/*.mat");
-% filenames = arrayfun(@(x) [x.folder '/' x.name], files, UniformOutput=false);
+files = dir("/Volumes/AnxietyBU/callbacks/detections/*.mat");
+filenames = arrayfun(@(x) [x.folder '/' x.name], files, UniformOutput=false);
 
 % or just specific .mats
-filenames = {'/Volumes/AnxietyBU/callbacks/detections/gr3bu36-d2-20240515115449-Block1.mat',...
-'/Volumes/AnxietyBU/callbacks/detections/gr3bu36-d1-20240514114822-Block1.mat'};
+% filenames = {'/Volumes/AnxietyBU/callbacks/detections/gr3bu36-d2-20240515115449-Block1.mat',...
+% '/Volumes/AnxietyBU/callbacks/detections/gr3bu36-d1-20240514114822-Block1.mat'};
 
 save_folder = './data/processed_mats';
 save_suffix = '-PROCESSED';
@@ -23,8 +23,14 @@ change_prefix = {...
     '/Volumes/AnxietyBU' ...  % with this
     };
 
+labels = {'trial', 'block', 'stim'};  % labeled numbers from filename to save. case insensitive. new struct fields saved as all lowercase.
+% labels = {'d', 'Block'}; 
 
 run_time = convertTo(datetime, 'posixtime');
+
+if not(isfolder(save_folder))
+    mkdir(save_folder)
+end
 
 % go through, process, and save all.
 for file_number=1:length(filenames)
@@ -51,9 +57,14 @@ for file_number=1:length(filenames)
     clear Calls2;
 
     % save info about files
-    file_info.birdname = get_birdname(mat_filename);
-    file_info.day = get_day_number(mat_filename);
-    file_info.block = get_block_number(mat_filename);
+    file_info.birdname = get_from_filename(mat_filename, 'birdname');
+    file_info.datestring = get_from_filename(mat_filename, 'datestring');
+    
+    for i_l = 1:length(labels)
+        label = labels{i_l};
+        file_info.(lower(label)) = get_labeled_number_from_filename(mat_filename, label);
+    end
+    
     file_info.mat_filename = mat_filename;
 
     file_info.wav_filename = windows2UnixFilename(audiodata.Filename, ChangePrefix=change_prefix);
@@ -74,52 +85,69 @@ end
         
 %% helper functions
 
-function birdname = get_birdname(filename)
-    
-    expression = '([a-z]{1,2}[0-9]{1,2}){2}';  % regexp for matching birdname: 1 or 2 letters then 1 or 2 numbers, times 2.
-    birdname = regexp(filename, expression, 'match');  % get birdname from filename
+function value = get_from_filename(filename, value_name)
+    % get 'birdname' or 'datestring' from filename
+    % 
+    % hardcoded regex for unique, unlabeled values
 
-    if length(birdname) == 1
-        birdname = birdname{1};
+    switch value_name
+        case 'birdname' 
+            expression = '([a-z]{1,2}[0-9]{1,2}){2}';
+        case 'datestring'
+            expression = '([0-9]{9,14})';
+        otherwise
+            error(['Label `' value_name '` not recognized.'])
+    end
+
+    value = regexpi(filename, expression, 'match');  % get birdname from filename
+
+    if length(value) == 1
+        value = value{1};
     else
-        error(['Multiple matches for birdname in filename: ' filename]);
+        error([num2str(length(value)) ' matches for ' value_name ' in filename: ' filename]);
     end
 end
 
 
-function day = get_day_number(filename)
-% get day # from filename when saved as -d# or _d#
-% only looks for 1-digit #
-
-    expression = '(-|_)d[0-9]';    
-    en = regexp(filename, expression, 'end');  % returns index of last char in matched expression; ie, day number
-
-    if length(en) ~= 1
-        error(['Could not match day # for file: ' filename] )
-    else
-        day = str2double(filename(en));
-    end
-end
-
-
-function block = get_block_number(filename)
-%  get block # from filename, when saved as "-Block##", with # being
-%  length 1 or 2
+function label_value = get_labeled_number_from_filename(filename, label, options)
+%  get labeled # from filename, when saved as "-Label##", with # being
+%  length 1 or 2. returns as a double.
 % 
+%  filename: string to search.
+%  label: case-sensitive label just before number (eg, 'Block' to return 1 from 'Block1').
+%  
+%  OPTIONAL PARAMETERS:
+%  options.number_matching: regexp to search for number. defaults to
+%       '[0-9]{1,2}' (ie, match 1- or 2-digit number)
+%  options.prefix: regexp to prepend for label search. defaults to 
+%       '(-|_|/|\)' (ie, matching any of -_/\ )
+%  options.suffix: %  regexp to append for label search. defaults to ''
+%       (ie, ignores)
 
-    expression1 = '-(Block)[0-9]{1,2}';  % to get '-Block#' substring
+    arguments
+        filename {isstring};
+        label {isstring};
+        options.number_matching = '[0-9]{1,2}';
+        options.prefix = '(-|_|\/|\\)';
+        options.suffix = '';
+    end
+    
 
-    block_string = regexp(filename, expression1, 'match');
+    expression = ['(' options.prefix ...
+        '(' label ')' ...
+        options.number_matching ...
+        options.suffix ')'];  % to get '-LABEL#' substring
 
-    assert(length(block_string) == 1);  % ensure only 1 match & select that
-    block_string = block_string{1};
+    label_string = regexpi(filename, expression, 'match');
 
-    expression2 = '[0-9]{1,2}';  % to get 1 or 2 digit number from '-Block# substring
+    assert(length(label_string) == 1, ...
+        [num2str(length(label_string)) ' matches for ' label ' in filename: ' filename]);  % ensure only 1 match & select that
+    label_string = label_string{1};
 
-    block = regexp(block_string, expression2, 'match'); 
-    assert(length(block) == 1)
+    label_value = regexpi(label_string, options.number_matching, 'match'); 
+    assert(length(label_value) == 1)
 
-    block = str2double(block{1});
+    label_value = str2double(label_value{1});
 
 end
 
