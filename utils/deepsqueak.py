@@ -25,8 +25,8 @@ def call_mat_stim_trial_loader(
     if verbose:
         print(f'Reading file: {file}')
     data = read_mat(file)
-
-    assert(all([x in ['Calls', 'file_info'] for x in data.keys()]))
+    
+    assert(all([x in data.keys() for x in ['Calls', 'file_info']]))
 
     ## store 
     file_info = data['file_info']
@@ -194,10 +194,12 @@ def multi_index_from_dict(df, index_dict, keep_current_index=True):
 if __name__ == '__main__':
     import glob
 
-    processed_directory = './data/processed_mats/*.mat'
-    acceptable_call_labels = ['Call', 'Stimulus', 'male_calls']  # any stimulus_trials containing call types NOT in this list are excluded (this includes unlabeled, which are stored as 'USV'!!)
+    processed_directory = '/Volumes/AnxietyBU/callbacks/processed/*.mat'
+    acceptable_call_labels = ['Call', 'Stimulus'] # any stimulus_trials containing call types NOT in this list are excluded (this includes unlabeled, which are stored as 'USV'!!)
 
     files = [f for f in glob.glob(processed_directory)]
 
 
     calls_df, stim_trials, rejected_trials, file_info, call_types = call_mat_stim_trial_loader(files[1], verbose=True)
+
+    print(file_info.keys())

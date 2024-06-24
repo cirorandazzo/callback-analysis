@@ -15,9 +15,11 @@ filenames = arrayfun(@(x) [x.folder '/' x.name], files, UniformOutput=false);
 % filenames = {'/Volumes/AnxietyBU/callbacks/detections/gr3bu36-d2-20240515115449-Block1.mat',...
 % '/Volumes/AnxietyBU/callbacks/detections/gr3bu36-d1-20240514114822-Block1.mat'};
 
+% where the processed mat files that can now be used on python will be saved
 save_folder = './data/processed_mats';
 save_suffix = '-PROCESSED';
 
+% change audio file prefixes. empty cell if prefix should remain
 change_prefix = {...
     'D:',...  % replace any instances of this in filenames
     '/Volumes/AnxietyBU' ...  % with this

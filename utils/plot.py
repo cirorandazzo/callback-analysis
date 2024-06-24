@@ -152,7 +152,7 @@ def plot_group_hist(
         else:
             label = f'{alt_labels[groupname]} ({len(group_data)})'
 
-        ax.stairs(hist, edges, label=label, color=color, **stair_kwargs[groupname])
+        ax.stairs(hist, edges, label=label, color=color, **stair_kwargs.get(groupname, {}))
 
     ax.legend()
     if alphabetize_legend:
