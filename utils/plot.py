@@ -303,13 +303,14 @@ def plot_pre_post(
     df_day,
     fieldname,
     ax=None,
-    tempo_data=None,
+    color='k',
     bird_id_fieldname="birdname",
+    plot_kwargs={},
 ):
     '''
     TODO: documentation
 
-    Given df_day whic has
+    Given `df_day` which has field `fieldname`, plot pre/post type line plot. `color` can be a pd.DataFrame with bird names as index containing color info for every bird in column "color", or a single matplotlib color
     '''
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
@@ -324,16 +325,16 @@ def plot_pre_post(
     for bird in all_birds:
         bird_data = df_day.loc[bird]
 
-        if tempo_data is not None:
-            c = tempo_data.loc[bird, "color"]
+        if isinstance(color, pd.DataFrame):
+            c = color.loc[bird, "color"]
         else:
-            c = "k"
-
+            c = color  # any matplotlib color formats should work here.
+            
         ax.plot(
             bird_data.index,  # days
             bird_data[fieldname],
             color=c,
-            marker="o",
+            **plot_kwargs,
         )
 
     return ax
