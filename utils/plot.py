@@ -297,3 +297,43 @@ def plot_violins_by_block(
         )
 
     return ax
+
+
+def plot_pre_post(
+    df_day,
+    fieldname,
+    ax=None,
+    tempo_data=None,
+    bird_id_fieldname="birdname",
+):
+    '''
+    TODO: documentation
+
+    Given df_day whic has
+    '''
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    import numpy as np
+    import pandas as pd
+
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    all_birds = np.unique(df_day.index.get_level_values(bird_id_fieldname))
+
+    for bird in all_birds:
+        bird_data = df_day.loc[bird]
+
+        if tempo_data is not None:
+            c = tempo_data.loc[bird, "color"]
+        else:
+            c = "k"
+
+        ax.plot(
+            bird_data.index,  # days
+            bird_data[fieldname],
+            color=c,
+            marker="o",
+        )
+
+    return ax
