@@ -306,6 +306,7 @@ def plot_pre_post(
     color='k',
     bird_id_fieldname="birdname",
     plot_kwargs={},
+    add_bird_label=False
 ):
     '''
     TODO: documentation
@@ -336,5 +337,24 @@ def plot_pre_post(
             color=c,
             **plot_kwargs,
         )
+
+
+        if add_bird_label:
+            i = np.argmax(bird_data.index)
+
+            x_t = bird_data.index[i] + .05
+            y_t = bird_data[fieldname].iloc[i]
+
+            # TODO: deal with nan
+            # print(f'{bird}: ({x_t}, {y_t})')
+
+            ax.text(
+                x_t, 
+                y_t, 
+                bird, 
+                fontsize='xx-small', 
+                verticalalignment='center', 
+                horizontalalignment='left',
+            )
 
     return ax
