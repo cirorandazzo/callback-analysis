@@ -1,22 +1,26 @@
 %% callback_summaries.m
 % 2024.03.02 CDR
 % 
-% 
 
 clear
-files = dir("/Volumes/AnxietyBU/callbacks/detections/*.mat");
-filenames = arrayfun(@(x) [x.folder '/' x.name], files, UniformOutput=false);
+
+% folder = "D:\callbacks\detections";
+folder = "\\tsclient\AnxietyBU\callbacks\detections\loom\or60rd49";
+files = dir( fullfile(folder, "**/*.mat") );
 
 %% print some summary information on each audio file
 
 summary = [];
 unique_labels = {};
 
-for file_number=1:length(filenames)
-    summary(file_number).filename = filenames{file_number};
+for file_number=length(files):-1:1
+    summary(file_number).file = files(file_number).name;
+    summary(file_number).path = [files(file_number).folder filesep files(file_number).name];
+    summary(file_number).ratio_call_stim = 0;
+    
     % disp('==========================================')
     % disp(strcat(string(i), ": ", filename));
-    load(summary(file_number).filename);
+    load(summary(file_number).path);
     % 
     % callback_report(Calls);
 
@@ -42,6 +46,21 @@ for file_number=1:length(filenames)
         end
 
         clear label
+    end
+
+    if isfield(summary, 'Stimulus')
+        try
+            calls = summary(file_number).Call;
+            stims = summary(file_number).Stimulus;
+    
+            if isempty(calls)
+                calls = 0;
+            end
+    
+            summary(file_number).ratio_call_stim = calls/stims;
+        catch e
+            summary(file_number).ratio_call_stim = [];
+        end
     end
 
     clear Calls audiodata types cats i i_good_calls file_number
