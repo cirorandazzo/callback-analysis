@@ -218,8 +218,8 @@ def plot_group_hist(
         else:
             color = f'C{i_grp}'
 
-        if alt_labels is None:
-            label = f'{groupname} ({len(group_data)})'
+        if alt_labels is None or groupname not in alt_labels.keys():
+            label = f'{grouping_level} {groupname} ({len(group_data)})'
         else:
             label = f'{alt_labels[groupname]} ({len(group_data)})'
 
