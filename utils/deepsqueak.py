@@ -44,8 +44,10 @@ def call_mat_stim_trial_loader(
     
     stim_trials['n_calls'] = [sum(calls[:,0] > 0) if len(calls)>0 else 0 for calls in stim_trials['call_times_stim_aligned']]
 
-    onsets = [calls[:, 0] if len(calls) > 0 else np.nan for calls in stim_trials['call_times_stim_aligned']]  # get all onsets for each trial, nan if no calls.
-    stim_trials['latency_s'] = [np.min(trial[trial > min_latency]) if ~np.isnan(trial).any() else np.nan for trial in onsets]  # min of positive trials
+    onsets = [calls[:, 0] if len(calls) > 0 else np.array([]) for calls in stim_trials['call_times_stim_aligned']]  # get all onsets for each trial, nan if no calls.
+    onsets = [trial[trial > min_latency] for trial in onsets]
+
+    stim_trials['latency_s'] = [np.min(trial) if len(trial)>0 else np.nan for trial in onsets]
 
     # stim_trials['latency_s'] = [np.min(calls[:,0]) if len(calls)>0 else np.nan for calls in stim_trials['call_times_stim_aligned']]
 
@@ -194,12 +196,24 @@ def multi_index_from_dict(df, index_dict, keep_current_index=True):
 if __name__ == '__main__':
     import glob
 
-    processed_directory = '/Volumes/AnxietyBU/callbacks/processed/*.mat'
+    processed_directory = '/Users/cirorandazzo/code/callback-analysis/data/processed_mats/*.mat'
     acceptable_call_labels = ['Call', 'Stimulus'] # any stimulus_trials containing call types NOT in this list are excluded (this includes unlabeled, which are stored as 'USV'!!)
 
     files = [f for f in glob.glob(processed_directory)]
 
+    # TODO: deal with issues in these files.
+    # files = [  # FIRST ONE WORKS
+    #     '/Users/cirorandazzo/code/callback-analysis/data/processed_mats/pk81rd39-d2-20240403122742-Block6-PROCESSED.mat',
+    #     '/Users/cirorandazzo/code/callback-analysis/data/processed_mats/or91rd13-d2-20240712120331-Stim0-Block0 2024-07-15 11_40 AM-PROCESSED.mat',
+    #     '/Users/cirorandazzo/code/callback-analysis/data/processed_mats/or91rd13-d1-20240711115800-Stim0-Block1 2024-07-15  8_27 AM-PROCESSED.mat'
+    # ]
 
-    calls_df, stim_trials, rejected_trials, file_info, call_types = call_mat_stim_trial_loader(files[1], verbose=True)
+    print(f'Processing {len(files)} files...')
+    for file in files:
+        try:
+            calls_df, stim_trials, rejected_trials, file_info, call_types = call_mat_stim_trial_loader(file, verbose=False)
 
-    print(file_info.keys())
+            # print(file_info.keys())
+        except Exception as e:
+            print(f'Error processing {file}')
+            print(e)
