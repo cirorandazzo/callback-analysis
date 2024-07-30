@@ -4,7 +4,7 @@
 % 
 
 clear
-files = dir("/Volumes/AnxietyBU/callbacks/detections/*.mat");
+files = dir("/Volumes/AnxietyBU/callbacks/detections/**/*.mat");
 filenames = arrayfun(@(x) [x.folder '/' x.name], files, UniformOutput=false);
 
 %% print some summary information on each audio file
