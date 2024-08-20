@@ -61,6 +61,13 @@ class AudioObject:
 
         self.audio_filt = filtfilt(b, a, self.audio)
 
+    def filtfilt_butter_default(self, f_low=500, f_high=15000, poles=8):
+        from scipy.signal import butter
+
+        b, a = butter(poles, [f_low, f_high], btype="bandpass", fs=self.fs)
+
+        self.filtfilt(b, a, self.audio)
+
     def rectify_smooth(self, smooth_window_f):
         import numpy as np
 
