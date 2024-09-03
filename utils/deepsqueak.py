@@ -5,6 +5,8 @@
 
 acceptable_call_labels = ['Call', 'Stimulus']  # any stimulus_trials containing call types NOT in this list are excluded (this includes unlabeled!!)
 
+ESA_LOOKUP = {"c": "Call", "s": "Stimulus", "n": "Song"}
+
 
 def call_mat_stim_trial_loader(
     file, 
@@ -23,16 +25,34 @@ def call_mat_stim_trial_loader(
     from pymatreader import read_mat
     
     if verbose:
-        print(f'Reading file: {file}')
+        print(f"Reading file: {file}")
     data = read_mat(file)
-    
-    assert(all([x in data.keys() for x in ['Calls', 'file_info']]))
 
-    ## store 
-    file_info = data['file_info']
+    if from_notmat:
+        calls = pd.DataFrame()
 
-    calls = pd.DataFrame(data['Calls'])
-    calls = calls[['start_s', 'end_s', 'duration_s', 'type']]  # reorder columns
+        calls = pd.DataFrame()
+        calls["start_s"] = data["onsets"] / 1000
+        calls["end_s"] = data["offsets"] / 1000
+        calls["duration_s"] = calls["end_s"] - calls["start_s"]
+        calls["type"] = [ESA_LOOKUP.get(l, l) for l in data["labels"]]
+
+        # TODO: deal with file info
+        file_info = dict(
+            wav_duration_s=np.inf,
+            wav_filename=None,
+            # birdname=None,
+            # d=-1,
+            # block=-1,
+        )
+
+    else:
+        assert all([x in data.keys() for x in ["Calls", "file_info"]])
+
+        file_info = data["file_info"]
+        calls = pd.DataFrame(data["Calls"])
+        calls = calls[["start_s", "end_s", "duration_s", "type"]]  # reorder columns
+
     calls.index.name = calls_index_name
 
     del data  # don't store twice, it's already saved elsewhere
