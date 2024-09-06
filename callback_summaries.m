@@ -3,10 +3,8 @@
 % 
 
 clear
-
-% folder = "D:\callbacks\detections";
-folder = "\\tsclient\AnxietyBU\callbacks\detections\loom\or60rd49";
-files = dir( fullfile(folder, "**/*.mat") );
+files = dir("/Volumes/AnxietyBU/callbacks/detections/**/*.mat");
+filenames = arrayfun(@(x) [x.folder '/' x.name], files, UniformOutput=false);
 
 %% print some summary information on each audio file
 

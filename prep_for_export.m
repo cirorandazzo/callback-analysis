@@ -8,23 +8,21 @@
 
 clear
 % all files in a directory
-files = dir("/Volumes/AnxietyBU/callbacks/detections/*.mat");
-filenames = arrayfun(@(x) [x.folder '/' x.name], files, UniformOutput=false);
+files = dir("/Volumes/AnxietyBU/callbacks/detections/**/*.mat");
+filenames = arrayfun(@(x) fullfile(x.folder, x.name), files, UniformOutput=false);
 
 % or just specific .mats
 % filenames = {'/Volumes/AnxietyBU/callbacks/detections/gr3bu36-d2-20240515115449-Block1.mat',...
 % '/Volumes/AnxietyBU/callbacks/detections/gr3bu36-d1-20240514114822-Block1.mat'};
 
+% where the processed mat files that can now be used on python will be saved
 save_folder = './data/processed_mats';
 save_suffix = '-PROCESSED';
 
-change_prefix = {...
-    'D:',...  % replace any instances of this in filenames
-    '/Volumes/AnxietyBU' ...  % with this
-    };
+warning('This script no longer changes prefix; instead use script ./utils/audiodata_path_change.m')
 
-labels = {'trial', 'block', 'stim'};  % labeled numbers from filename to save. case insensitive. new struct fields saved as all lowercase.
-% labels = {'d', 'Block'}; 
+% labels = {'trial', 'block', 'stim'};  % labeled numbers from filename to save. case insensitive. new struct fields saved as all lowercase.
+labels = {'d', 'Block'}; 
 
 run_time = convertTo(datetime, 'posixtime');
 
@@ -67,7 +65,7 @@ for file_number=1:length(filenames)
     
     file_info.mat_filename = mat_filename;
 
-    file_info.wav_filename = windows2UnixFilename(audiodata.Filename, ChangePrefix=change_prefix);
+    file_info.wav_filename = audiodata.Filename;
     file_info.wav_duration_s = audiodata.Duration;
     file_info.wav_fs = audiodata.SampleRate;
 
@@ -100,6 +98,7 @@ function value = get_from_filename(filename, value_name)
     end
 
     value = regexpi(filename, expression, 'match');  % get birdname from filename
+    value = unique(value);
 
     if length(value) == 1
         value = value{1};
@@ -150,32 +149,6 @@ function label_value = get_labeled_number_from_filename(filename, label, options
     label_value = str2double(label_value{1});
 
 end
-
-function new_filename = windows2UnixFilename(old_filename, options)
-% 
-% 
-% optional keyword arg: ChangePrefix. cell array with 2 strings; replace
-% all instances of first string with second.
-
-    arguments
-        old_filename;
-        options.ChangePrefix {iscell} = {};
-    end
-
-    new_filename = old_filename;
-
-    if ~isempty(options.ChangePrefix)
-        new_filename = strrep(new_filename, options.ChangePrefix{1}, options.ChangePrefix{2});
-    end
-
-    new_filename = strrep(new_filename, '\', '/');
-
-end
-
-
-
-
-
 
 
 

@@ -8,21 +8,38 @@
 % different path in folder `audio_parent_new`.
 % 
 
-detection_folder = "D:\callbacks\detections";
-detection_files = dir(fullfile(detection_folder, '*.mat'));
+% detection_folder = "D:\callbacks\detections";
+detection_folder = "/Volumes/AnxietyBU/callbacks/detections";
+detection_files = dir(fullfile(detection_folder, '**', '*.mat'));
 
-audio_parent_new = "D:\callbacks\**";
+% audio_parent_new = "D:\callbacks\**";
+audio_parent_new = "/Volumes/AnxietyBU/callbacks/**";
+
+%% zip backup of detection folder
+
+[detection_parent,~] = fileparts(detection_folder); 
+
+backup_filename = append(...
+    string(datetime('now', Format='yyyyMMddHHmmss')), ...
+    '-detection_backup');
+backup_filename = fullfile(detection_parent, backup_filename);
+
+zip(backup_filename, detection_folder)
+
+clear detection_parent
 
 %%
 failures = [];
 
-for i_f = 1:length(detection_files);
+for i_f = 1:length(detection_files)
     record = detection_files(i_f);
     mat_filename = fullfile(record.folder, record.name);
     
     % get current audio filename
     load(mat_filename, "audiodata");
-    [~, name, ext] = fileparts(audiodata.Filename);
+
+    audio_filename_old = strrep(audiodata.Filename, '\', '/');  % fileparts only works with '/' on UNIX
+    [~, name, ext] = fileparts(audio_filename_old);
     audio_filename_old = [name ext];
     clear name ext;
     
@@ -41,4 +58,11 @@ for i_f = 1:length(detection_files);
         save(mat_filename, "audiodata", "-append")  % will overwrite audiodata but keep Calls 
         disp(append('Successfully edited file: ', mat_filename));
     end
+end
+
+if ~isempty(failures)
+    warning('Failed files!')
+    disp(failures);
+else
+    disp('All files successfully edited!')
 end
