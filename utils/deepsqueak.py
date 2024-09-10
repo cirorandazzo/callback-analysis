@@ -57,6 +57,14 @@ def call_mat_stim_trial_loader(
         calls = pd.DataFrame(data["Calls"])
         calls = calls[["start_s", "end_s", "duration_s", "type"]]  # reorder columns
 
+    onsets = np.array(calls["start_s"])
+    time_from_prev_onset = [np.NaN] + list(onsets[1:] - onsets[:-1])
+    calls["time_from_prev_onset_s"] = time_from_prev_onset
+    calls["type_prev_call"] = [None] + list(calls["type"][:-1])
+
+    ii = (calls["type_prev_call"] == "Call") & (calls["type"] == "Call")
+
+    calls["ici"] = calls.loc[ii]["time_from_prev_onset_s"]
     calls.index.name = calls_index_name
 
     del data  # don't store twice, it's already saved elsewhere

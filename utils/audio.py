@@ -78,9 +78,9 @@ class AudioObject:
 
         # cumsum = np.cumsum(np.insert(rectified, 0, 0))
         # smoothed = (cumsum[smooth_window_f:] - cumsum[:-smooth_window_f]) / float(smooth_window_f)
-        
+
         wind = np.ones(smooth_window_f)
-        smoothed = np.convolve(wind, rectified, 'same')
+        smoothed = np.convolve(wind, rectified, "same")
 
         self.audio_frs = smoothed
 
@@ -126,14 +126,20 @@ class AudioObject:
         """
         return np.arange(len(self.audio)) / self.fs
 
+    def get_length_s(self):
+        """
+        Return length of audio in s.
+        """
+
+        return len(self.audio) / self.fs
+
 
 def plot_spectrogram(
     spectrogram: np.ndarray,
     SFT: np.ndarray,
     ax=None,
-    cmap="bone",
-    plot_kwargs={},
     x_offset_s=0,
+    **plot_kwargs,
 ):
     import matplotlib.pyplot as plt
     import numpy as np
@@ -145,18 +151,20 @@ def plot_spectrogram(
     extent = np.array(SFT.extent(SFT.hop * spectrogram.shape[1])).astype("float")
     extent[0:2] += x_offset_s  # offset x axis
 
+    if "cmap" not in plot_kwargs.keys():
+        plot_kwargs["cmap"] = "bone_r"
+
     ax.imshow(
         spectrogram,
         origin="lower",
         aspect="auto",
         extent=extent,
-        cmap=cmap,
+        **plot_kwargs,
     )
 
     ax.set(
         xlabel="Time (s)",
         ylabel="Frequency (Hz)",
-        **plot_kwargs,
     )
 
     return ax
@@ -168,10 +176,10 @@ def normalize(x, range=(-1, 1)):
     flattened = minmax_scale(x.flatten(), feature_range=range).astype("float32")
     return flattened.reshape(x.shape)
 
+
 class UnfilteredException(Exception):
     def __init__(self):
         self.message = "Filter audio with self.filtfilt before calling this method!"
-            
 
 
 if __name__ == "__main__()":
