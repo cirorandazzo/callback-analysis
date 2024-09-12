@@ -12,6 +12,7 @@ def get_triggers_from_audio(
     threshold_function=lambda x: 10 * np.mean(x),
     crossing_direction="up",
     allowable_range=None,
+    ignore_range_fr=None,
 ) -> np.ndarray:
     import numpy as np
 
@@ -30,6 +31,9 @@ def get_triggers_from_audio(
     offset = np.append([1], a_thresholded[:-1])
 
     frames = np.nonzero(a_thresholded & ~offset)[0]
+
+    if ignore_range_fr is not None:
+        frames = np.array([f for f in frames if f not in range(ignore_range_fr)])
 
     if allowable_range is not None:
         # number of audio samples between subsequent frames
@@ -61,11 +65,12 @@ def get_video_frames_from_callback_audio(
     - return all frames when audio starts dips below threshold (ie, frame i for i<=thresh iff (i-1)>thresh)
     - if do_check is True, ensures that range of inter-frame intervals <= 10
     """
+
     frames = get_triggers_from_audio(
         audio=camera_channel_audio,
         threshold_function=threshold_function,
         crossing_direction="down",
-        allowable_range=10,
+        allowable_range=allowable_range,
         **kwargs,
     )
 
