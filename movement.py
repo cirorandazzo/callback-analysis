@@ -10,10 +10,10 @@ from scipy.io import wavfile
 
 from utils.audio import AudioObject
 from utils.video import (
-    write_diff_video,
-    play_video,
     get_triggers_from_audio,
     get_video_frames_from_callback_audio,
+    play_video,
+    write_diff_video,
 )
 
 
