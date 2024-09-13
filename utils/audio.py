@@ -56,6 +56,32 @@ class AudioObject:
 
         return new_obj
 
+    @classmethod
+    def from_cbin(
+        cls,
+        filename,
+        channel=0,
+        **kwargs,
+    ):
+        """
+        Create an AudioObject given a cbin file. Defaults to first channel (0) which can be changed as a keyword arg.
+
+        Args should match default constructor.
+        """
+        from utils.evfuncs import load_cbin
+
+        audio, fs = load_cbin(filename, channel=channel)
+
+        new_obj = cls(
+            audio,
+            fs,
+            **kwargs,
+        )
+
+        new_obj.file = filename
+
+        return new_obj
+
     def filtfilt(self, b, a):
         from scipy.signal import filtfilt
 
