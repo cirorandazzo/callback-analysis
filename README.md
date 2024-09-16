@@ -1,19 +1,39 @@
 # Callback Analysis
 
-## Pipeline
+## Usage
+
+> See [INSTALL.md](./docs/INSTALL.md) for installation instructions (to be done once).
+
+> See [STARTUP.md](./docs/STARTUP.md) for startup instructions (how to open jupyter notebooks and run `.ipynb` files).
+
+1. `make_df.ipynb`: given a list of supported `.mat` files, creates a stimulus-aligned dataframe. Saves as a `.pickle` for loading into other python code and/or as multiple `.csv` files for external compatibility.
+1. `callbacks.ipynb`: Given pickled dfs from `make_df.ipynb`, generates some useful plots and summary statistics.
+
+> [!WARNING]
+> Not all `callbacks.ipynb` plots are currently supported for evsonganaly `.not.mat` files due to file_info issue.
+
+### Pipeline: Evsonganaly
+
+1. Label calls in Evsonganaly
+2. Run `make_df.ipynb` directly on output `.not.mat` files.
+
+### Pipeline: DeepSqueak
 
 1. Label calls in DeepSqueak
     - Check `callback_summaries.m` for summary information on contents.
 2. `prep_for_export.m`
-    - DeepSqueak output --> python-importable .mat
-3. `callbacks.ipynb`
-    - Cuts according to 'stimulus trials' (see below)
-    - Plots rasters
+    - Transforms deepSqueak output into a python-importable .mat
+3. `make_df.ipynb`
 
 ## Other files
 
-- `videos-frame_alignment.ipynb`
-    - Get timing of video frames in audio given exposure data stored in channel 2 of audio. 
+- `kde.ipynb`: a first go at spline fitting
+- Loom-only experiment analyses
+    - `loom-only.ipynb`: analyze loom startle latency based on audio signal
+    - `movement.ipynb/.py`: analyze loom startle latency based on video frame difference
+- `videos-frame_alignment.ipynb`: demonstration of aligning video frames to audio using camera exposure channel in callback audio file
+
+TODO: .mat file writeups
 
 Utils (`./utils/`)
 - `deepsqueak.py`
@@ -25,6 +45,8 @@ Utils (`./utils/`)
 
 
 ## DataFrames
+
+TODO: update data structure documentation
 
 ### stim_trials
 Each row represents one stimulus and subsequent calls.
