@@ -1,0 +1,16 @@
+name: callback-analysis
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - jupyter
+  - ipympl
+  - numpy
+  - pandas
+  - matplotlib
+  - scipy
+  - scikit-learn
+  - seaborn
+  - opencv
+  - pip:
+    - pymatreader

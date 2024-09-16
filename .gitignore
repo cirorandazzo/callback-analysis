@@ -1,8 +1,6 @@
 data/
 tests/
 
-explicit_env.yaml
-
 ## Github Python gitignore
 
 # Byte-compiled / optimized / DLL files
