@@ -10,6 +10,7 @@ Requirements:
     - `git clone https://github.com/cirorandazzo/callback-analysis`
 1. Clone submodules
     - `git submodule update --init --recursive`
-1. Create conda env
+1. Create conda env.
+    - On Windows, do these steps in Anaconda Prompt.
     - Navigate to `callback-analysis` folder
     - `conda env create --file explicit_env.yaml`
