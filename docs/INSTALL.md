@@ -1,8 +1,8 @@
 # Installation
 
 Requirements:
-- Git
-- Conda
+- [Git](https://git-scm.com/downloads)
+- [Conda](https://www.anaconda.com/download)
 
 *You should only need to do the steps in this section once. On UNIX, do these steps in terminal. On Windows, do them in Git Bash*
 
