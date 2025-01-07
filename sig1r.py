@@ -18,6 +18,7 @@ from utils.plot import (
     plot_callback_raster_multiblock,
     plot_callback_raster_multiday,
     plot_callback_heatmap,
+    plot_group_hist,
 )
 
 # %% AUTORELOAD
@@ -204,7 +205,32 @@ for field_name, vrange in zip(field_names, measure_ranges):
 
 distribution_folder = Path(f"./data/sig1r/{family}/distributions")
 
+field_name = "latency_s"
+binwidth = 0.02
+suptitle = f"{field_name}: all trials in first 5 blocks, d1 v. d5"
+xlabel = "Latency to first call (s)"
+
 fig, axs = plt.subplots(nrows=2, sharex=True, sharey=True)
 
-for df, ax in zip(dfs_by_day, axs):
-    
+for df, ax in zip(pickled_dfs, axs):
+    birdname = get_birdname(df)
+    plot_group_hist(
+        df.loc[df.index.get_level_values("block") <= max_blocks_per_day],
+        field=field_name,
+        grouping_level="day",
+        groups_to_plot=(1, 5),
+        ax=ax,
+        binwidth=binwidth,
+        stair_kwargs={
+            "fill": True,
+            "alpha": 0.7,
+        },
+    )
+
+    ax.set(title=f"{birdname} ({condition[birdname]})")
+
+fig.suptitle(suptitle)
+axs[-1].set(xlabel=xlabel)
+
+fig.savefig(distribution_folder.joinpath(f"distribution-{field_name}.svg"))
+plt.close()
