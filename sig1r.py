@@ -105,9 +105,30 @@ for df in pickled_dfs:
         fig.savefig(raster_folder.joinpath(f"{birdname}{tag}-d{day}.svg"))
         plt.close(fig)
 
-# %% PLOT HEATMAPS
+# %% MAKE AGG DFS
 
-# make sure these field_names are defined in the groupby agg
+# get summary stat df by day/block
+dfs_by_day_block = [
+    df.groupby(level=["birdname", "day", "block"]).agg(
+        median_latency_s=("latency_s", lambda x: np.nanmedian(x)),
+        mean_n_calls_excl_zero=("n_calls", lambda x: np.sum(x) / np.count_nonzero(x)),
+        pct_trials_responded=("n_calls", lambda x: np.count_nonzero(x) / len(x)),
+    )
+    for df in pickled_dfs
+]
+
+max_blocks_per_day = 4
+# average across blocks for each day
+dfs_by_day = [
+    df_blocked.loc[df_blocked.index.get_level_values("block") <= max_blocks_per_day]
+    .groupby(level=["birdname", "day"])
+    .agg("mean")
+    for df_blocked in dfs_by_day_block
+]
+
+# %% AGG PLOT ARGUMENTS
+
+# make sure these field_names are defined in the groupby agg above
 field_names = [
     "median_latency_s",
     "mean_n_calls_excl_zero",
@@ -124,16 +145,11 @@ measure_ranges = [
     (0.8, 1),
 ]  # None for default colormap scale
 
+# %% PLOT HEATMAPS
+
 heatmap_folder = Path(f"./data/sig1r/heatmaps")
 
-for df in pickled_dfs:
-    # get summary stat df by day/block
-    df_blocked = df.groupby(level=["birdname", "day", "block"]).agg(
-        median_latency_s=("latency_s", lambda x: np.nanmedian(x)),
-        mean_n_calls_excl_zero=("n_calls", lambda x: np.sum(x) / np.count_nonzero(x)),
-        pct_trials_responded=("n_calls", lambda x: np.count_nonzero(x) / len(x)),
-    )
-
+for df_blocked in dfs_by_day_block:
     birdname = get_birdname(df_blocked)
 
     for field_name, cmap_name, vrange in zip(field_names, cmaps, measure_ranges):
@@ -153,3 +169,30 @@ for df in pickled_dfs:
 
         fig.savefig(heatmap_folder.joinpath(f"{birdname}-heatmap-{field_name}.svg"))
         plt.close()
+
+# %% LINE PLOTS: MEAN
+
+lineplot_folder = Path(f"./data/sig1r/lineplots")
+
+for field_name, vrange in zip(field_names, measure_ranges):
+    fig, ax = plt.subplots(figsize=(12, 9))
+
+    for df in dfs_by_day:
+        birdname = get_birdname(df)
+        ax.plot(
+            df.index.get_level_values("day"),
+            df[field_name],
+            label=f"{birdname} ({condition[birdname]})",
+        )
+
+    ax.set(
+        xlabel="Day",
+        ylabel=field_name,
+        title=f"{field_name}, mean of first {max_blocks_per_day + 1} blocks/ day"
+    )
+
+    ax.set_xticks(df.index.get_level_values("day"))
+    ax.legend()
+
+    fig.savefig(lineplot_folder.joinpath(f"lineplot-{field_name}.svg"))
+    plt.close()
