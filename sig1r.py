@@ -3,6 +3,7 @@
 # Analysis code for sig1r experiments.
 # 2025.01.06 CDR
 
+import os
 from pathlib import Path
 import pickle
 
@@ -31,24 +32,28 @@ from utils.plot import (
 
 # NOTE: run make-df externally & save pickle outputs to pickle_folder.
 pickle_folder = Path(r"F:\Sig1R-labels\processed-df\bubu")
+exclude_song = True
 
-
-def load_df(filename):
+def load_df(filename, exclude_song=False):
     with open(filename, "rb") as f:
         df = pickle.load(f)["df"]
+
+    if exclude_song:
+        has_song = df["call_types"].apply(lambda x: "Song" in x)
+        df = df.loc[~has_song]
 
     return df
 
 
 # array of dfs. 1 per bird
-pickled_dfs = [load_df(f) for f in list(pickle_folder.glob("*.pickle"))]
+pickled_dfs = [load_df(f, exclude_song=True) for f in list(pickle_folder.glob("*.pickle"))]
 
 pickled_dfs
 
 # %% PLOTTING SETTINGS
 
-# family (for plot folder)
-family = "bubu"
+# figure savefolder root
+savefig_root = Path(r"./data/sig1r/bubu/song_excluded")
 
 # for legend/titles: bird (condition)
 condition = {
@@ -56,12 +61,17 @@ condition = {
     "bu88bu38": "saline",
 }
 
-
 def get_birdname(df):
     birdname = np.unique(df.index.get_level_values("birdname"))
     assert len(birdname) == 1  # only one bird per df
     return birdname[0]
 
+
+# prepare plot subfolders
+subfolders = ["rasters", "heatmaps", "lineplots", "distributions"]
+
+for sf in subfolders:
+    os.makedirs(savefig_root.joinpath(sf))
 
 # %% MAKE AGG DFS
 
@@ -108,10 +118,13 @@ measure_ranges = [
 figsize_all_days = (4, 6)
 figsize_one_day = (4, 4)
 
-xlim = [0, 1]
+raster_folder = savefig_root.joinpath(r"rasters")
 
-raster_folder = Path(f"./data/sig1r/{family}/rasters")
-tag = "-1s"  # adds label in filename.
+xlim = [0, 3]
+tag = ""
+
+# xlim = [0, 1]
+# tag = "-1s"  # adds label in filename.
 
 for df in pickled_dfs:
     birdname = get_birdname(df)
@@ -151,7 +164,7 @@ for df in pickled_dfs:
 
 # %% PLOT HEATMAPS
 
-heatmap_folder = Path(f"./data/sig1r/{family}/heatmaps")
+heatmap_folder = savefig_root.joinpath(r"heatmaps")
 
 for df_blocked in dfs_by_day_block:
     birdname = get_birdname(df_blocked)
@@ -176,7 +189,7 @@ for df_blocked in dfs_by_day_block:
 
 # %% LINE PLOTS: MEAN
 
-lineplot_folder = Path(f"./data/sig1r/{family}/lineplots")
+lineplot_folder = savefig_root.joinpath(r"lineplots")
 
 for field_name, vrange in zip(field_names, measure_ranges):
     fig, ax = plt.subplots(figsize=(12, 9))
@@ -203,7 +216,7 @@ for field_name, vrange in zip(field_names, measure_ranges):
 
 # %% D1 vs D5 distribution (latency, n_calls)
 
-distribution_folder = Path(f"./data/sig1r/{family}/distributions")
+distribution_folder = savefig_root.joinpath(r"distributions")
 
 def distribution_plot(field_name, binwidth, suptitle, xlabel):
     fig, axs = plt.subplots(nrows=2, sharex=True, sharey=True)
@@ -234,7 +247,7 @@ def distribution_plot(field_name, binwidth, suptitle, xlabel):
 to_plot = [
     dict(
         field_name="latency_s",
-        binwidth=0.02,
+        binwidth=0.04,
         suptitle=f"Latency: all trials in first 5 blocks, d1 v. d5",
         xlabel="Latency to first call (s)",
     ),
