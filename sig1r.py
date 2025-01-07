@@ -11,50 +11,66 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 
-plt.rcParams['figure.dpi'] = 400
+plt.rcParams["figure.dpi"] = 400
 
-from utils.plot import plot_callback_raster, plot_callback_raster_multiblock, plot_callback_raster_multiday
+from utils.plot import (
+    plot_callback_raster,
+    plot_callback_raster_multiblock,
+    plot_callback_raster_multiday,
+    plot_callback_heatmap,
+)
 
-# %%
+# %% AUTORELOAD
 
-# run make-df externally & save pickle outputs to pickle_folder.
+# %load_ext autoreload
+# %autoreload 1
+# %aimport utils.plot
+
+# %% LOAD DFS
+
+# NOTE: run make-df externally & save pickle outputs to pickle_folder.
 pickle_folder = Path(r"F:\Sig1R-labels\processed-df\bubu")
 
+
 def load_df(filename):
-    with open(filename, 'rb') as f: 
+    with open(filename, "rb") as f:
         df = pickle.load(f)["df"]
-    
+
     return df
 
-pickled_dfs = [
-    load_df(f)
-    for f in list( pickle_folder.glob("*.pickle"))
-]
+
+# array of dfs. 1 per bird
+pickled_dfs = [load_df(f) for f in list(pickle_folder.glob("*.pickle"))]
 
 pickled_dfs
 
-# %%
+# %% PLOTTING SETTINGS
 
+# for legend/titles: bird (condition)
 condition = {
     "bu86bu36": "NE100",
     "bu88bu38": "saline",
 }
 
-# %%
 
-figsize_all_days = (4,6)
-figsize_one_day = (4,4)
+def get_birdname(df):
+    birdname = np.unique(df.index.get_level_values("birdname"))
+    assert len(birdname) == 1  # only one bird per df
+    return birdname[0]
+
+
+# %% PLOT RASTERS
+
+figsize_all_days = (4, 6)
+figsize_one_day = (4, 4)
 
 xlim = [0, 1]
 
 raster_folder = Path(f"./data/sig1r/rasters")
-tag = "-1s"
+tag = "-1s"  # adds label in filename.
 
 for df in pickled_dfs:
-
-    birdname = np.unique(df.index.get_level_values("birdname"))
-    assert len(birdname) == 1  # only one bird per df
-    birdname = birdname[0]
+    birdname = get_birdname(df)
 
     # 1 plot containing all days & all blocks
     fig, ax_all = plt.subplots(figsize=figsize_all_days)
@@ -82,9 +98,58 @@ for df in pickled_dfs:
         ax_day.set(
             xlim=xlim,
             ylim=(0, len(df_day)),
-            title=f"{birdname} ({condition[birdname]}): Day {day}"
+            title=f"{birdname} ({condition[birdname]}): Day {day}",
         )
 
         fig.tight_layout()
         fig.savefig(raster_folder.joinpath(f"{birdname}{tag}-d{day}.svg"))
         plt.close(fig)
+
+# %% PLOT HEATMAPS
+
+# make sure these field_names are defined in the groupby agg
+field_names = [
+    "median_latency_s",
+    "mean_n_calls_excl_zero",
+    "pct_trials_responded",
+]
+cmaps = [
+    "viridis_r",
+    "Purples",
+    "Blues",
+]
+measure_ranges = [
+    (0, 0.4),
+    (0, 10),
+    (0.8, 1),
+]  # None for default colormap scale
+
+heatmap_folder = Path(f"./data/sig1r/heatmaps")
+
+for df in pickled_dfs:
+    # get summary stat df by day/block
+    df_blocked = df.groupby(level=["birdname", "day", "block"]).agg(
+        median_latency_s=("latency_s", lambda x: np.nanmedian(x)),
+        mean_n_calls_excl_zero=("n_calls", lambda x: np.sum(x) / np.count_nonzero(x)),
+        pct_trials_responded=("n_calls", lambda x: np.count_nonzero(x) / len(x)),
+    )
+
+    birdname = get_birdname(df_blocked)
+
+    for field_name, cmap_name, vrange in zip(field_names, cmaps, measure_ranges):
+        fig, ax = plt.subplots(figsize=(9, 12))
+        fig, ax, im, cbar = plot_callback_heatmap(
+            df_blocked,
+            field_name,
+            fig=fig,
+            norm=vrange,
+            cmap_name=cmap_name,
+        )
+        ax.set(
+            xlabel="Day",
+            ylabel="Block",
+            title=f"{birdname} ({condition[birdname]}): {field_name}",
+        )
+
+        fig.savefig(heatmap_folder.joinpath(f"{birdname}-heatmap-{field_name}.svg"))
+        plt.close()
