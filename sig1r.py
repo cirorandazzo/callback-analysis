@@ -46,6 +46,9 @@ pickled_dfs
 
 # %% PLOTTING SETTINGS
 
+# family (for plot folder)
+family = "bubu"
+
 # for legend/titles: bird (condition)
 condition = {
     "bu86bu36": "NE100",
@@ -58,52 +61,6 @@ def get_birdname(df):
     assert len(birdname) == 1  # only one bird per df
     return birdname[0]
 
-
-# %% PLOT RASTERS
-
-figsize_all_days = (4, 6)
-figsize_one_day = (4, 4)
-
-xlim = [0, 1]
-
-raster_folder = Path(f"./data/sig1r/rasters")
-tag = "-1s"  # adds label in filename.
-
-for df in pickled_dfs:
-    birdname = get_birdname(df)
-
-    # 1 plot containing all days & all blocks
-    fig, ax_all = plt.subplots(figsize=figsize_all_days)
-
-    plot_callback_raster_multiday(df.xs(birdname), ax=ax_all)
-    ax_all.get_legend().remove()
-    ax_all.set(
-        xlim=xlim,
-        ylim=(0, len(df)),
-        title=f"{birdname} ({condition[birdname]})",
-    )
-
-    fig.tight_layout()
-    fig.savefig(raster_folder.joinpath(f"{birdname}{tag}-ALL.svg"))
-    plt.close(fig)
-
-    # plot all blocks per day
-    days = np.unique(df.index.get_level_values("day"))
-    for day in days:
-        df_day = df.xs((birdname, day))
-
-        fig, ax_day = plt.subplots(figsize=figsize_one_day)
-        plot_callback_raster_multiblock(df_day, ax=ax_day)
-
-        ax_day.set(
-            xlim=xlim,
-            ylim=(0, len(df_day)),
-            title=f"{birdname} ({condition[birdname]}): Day {day}",
-        )
-
-        fig.tight_layout()
-        fig.savefig(raster_folder.joinpath(f"{birdname}{tag}-d{day}.svg"))
-        plt.close(fig)
 
 # %% MAKE AGG DFS
 
@@ -145,9 +102,55 @@ measure_ranges = [
     (0.8, 1),
 ]  # None for default colormap scale
 
+# %% PLOT RASTERS
+
+figsize_all_days = (4, 6)
+figsize_one_day = (4, 4)
+
+xlim = [0, 1]
+
+raster_folder = Path(f"./data/sig1r/{family}/rasters")
+tag = "-1s"  # adds label in filename.
+
+for df in pickled_dfs:
+    birdname = get_birdname(df)
+
+    # 1 plot containing all days & all blocks
+    fig, ax_all = plt.subplots(figsize=figsize_all_days)
+
+    plot_callback_raster_multiday(df.xs(birdname), ax=ax_all)
+    ax_all.get_legend().remove()
+    ax_all.set(
+        xlim=xlim,
+        ylim=(0, len(df)),
+        title=f"{birdname} ({condition[birdname]})",
+    )
+
+    fig.tight_layout()
+    fig.savefig(raster_folder.joinpath(f"{birdname}{tag}-ALL.svg"))
+    plt.close(fig)
+
+    # plot all blocks per day
+    days = np.unique(df.index.get_level_values("day"))
+    for day in days:
+        df_day = df.xs((birdname, day))
+
+        fig, ax_day = plt.subplots(figsize=figsize_one_day)
+        plot_callback_raster_multiblock(df_day, ax=ax_day)
+
+        ax_day.set(
+            xlim=xlim,
+            ylim=(0, len(df_day)),
+            title=f"{birdname} ({condition[birdname]}): Day {day}",
+        )
+
+        fig.tight_layout()
+        fig.savefig(raster_folder.joinpath(f"{birdname}{tag}-d{day}.svg"))
+        plt.close(fig)
+
 # %% PLOT HEATMAPS
 
-heatmap_folder = Path(f"./data/sig1r/heatmaps")
+heatmap_folder = Path(f"./data/sig1r/{family}/heatmaps")
 
 for df_blocked in dfs_by_day_block:
     birdname = get_birdname(df_blocked)
@@ -172,7 +175,7 @@ for df_blocked in dfs_by_day_block:
 
 # %% LINE PLOTS: MEAN
 
-lineplot_folder = Path(f"./data/sig1r/lineplots")
+lineplot_folder = Path(f"./data/sig1r/{family}/lineplots")
 
 for field_name, vrange in zip(field_names, measure_ranges):
     fig, ax = plt.subplots(figsize=(12, 9))
@@ -196,3 +199,12 @@ for field_name, vrange in zip(field_names, measure_ranges):
 
     fig.savefig(lineplot_folder.joinpath(f"lineplot-{field_name}.svg"))
     plt.close()
+
+# %% D1 vs D5 distribution
+
+distribution_folder = Path(f"./data/sig1r/{family}/distributions")
+
+fig, axs = plt.subplots(nrows=2, sharex=True, sharey=True)
+
+for df, ax in zip(dfs_by_day, axs):
+    
