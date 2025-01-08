@@ -238,7 +238,7 @@ for field_name, vrange in zip(field_names, measure_ranges):
 
 # %% D1 vs D5 distribution (latency, n_calls)
 
-distribution_folder = savefig_root.joinpath(r"distributions-test")
+distribution_folder = savefig_root.joinpath(r"distributions")
 
 
 def distribution_plot(
@@ -248,6 +248,7 @@ def distribution_plot(
     suptitle,
     xlabel,
     day_groupings=((1, 3), (1, 5), (3, 5), (1, 3, 5)),
+    **plot_group_hist_kwargs,
 ):
 
     for days in day_groupings:
@@ -267,6 +268,7 @@ def distribution_plot(
                     "fill": True,
                     "alpha": 0.7,
                 },
+                **plot_group_hist_kwargs,
             )
 
             ax.set(title=f"{birdname} ({condition[birdname]})")
@@ -298,9 +300,10 @@ to_plot = [
     dict(
         dfs_array=calls_dfs,
         field_name="ici",
-        binwidth=0.06,
+        binwidth=0.04,
         suptitle=f"ICI: all trials in first 5 blocks",
         xlabel="ICI (s)",
+        ignore_nan=True,
     ),
 ]
 
