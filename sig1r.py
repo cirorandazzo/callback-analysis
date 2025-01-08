@@ -97,12 +97,16 @@ subfolders = ["rasters", "heatmaps", "lineplots", "distributions"]
 
 # %% MAKE AGG DFS
 
+agg_functions = dict(
+    median_latency_s=("latency_s", lambda x: np.nanmedian(x)),
+    mean_n_calls_excl_zero=("n_calls", lambda x: np.sum(x) / np.count_nonzero(x)),
+    pct_trials_responded=("n_calls", lambda x: np.count_nonzero(x) / len(x)),
+)
+
 # get summary stat df by day/block
 dfs_by_day_block = [
     df.groupby(level=["birdname", "day", "block"]).agg(
-        median_latency_s=("latency_s", lambda x: np.nanmedian(x)),
-        mean_n_calls_excl_zero=("n_calls", lambda x: np.sum(x) / np.count_nonzero(x)),
-        pct_trials_responded=("n_calls", lambda x: np.count_nonzero(x) / len(x)),
+        **agg_functions
     )
     for df in pickled_dfs
 ]
@@ -110,10 +114,10 @@ dfs_by_day_block = [
 max_blocks_per_day = 4
 # average across blocks for each day
 dfs_by_day = [
-    df_blocked.loc[df_blocked.index.get_level_values("block") <= max_blocks_per_day]
-    .groupby(level=["birdname", "day"])
-    .agg("mean")
-    for df_blocked in dfs_by_day_block
+    df.groupby(level=["birdname", "day"]).agg(
+        **agg_functions
+    )
+    for df in pickled_dfs
 ]
 
 # %% AGG PLOT ARGUMENTS
@@ -209,7 +213,7 @@ for df_blocked in dfs_by_day_block:
         fig.savefig(heatmap_folder.joinpath(f"{birdname}-heatmap-{field_name}.svg"))
         plt.close()
 
-# %% LINE PLOTS: MEAN
+# %% LINEPLOTS BY DAY
 
 lineplot_folder = savefig_root.joinpath(r"lineplots")
 
@@ -227,7 +231,7 @@ for field_name, vrange in zip(field_names, measure_ranges):
     ax.set(
         xlabel="Day",
         ylabel=field_name,
-        title=f"{field_name}, mean of first {max_blocks_per_day + 1} blocks/ day",
+        title=f"{field_name} (first {max_blocks_per_day + 1} blocks/ day)",
     )
 
     ax.set_xticks(df.index.get_level_values("day"))
