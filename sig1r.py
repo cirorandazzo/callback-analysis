@@ -92,8 +92,8 @@ def get_birdname(df):
 # prepare plot subfolders
 subfolders = ["rasters", "heatmaps", "lineplots", "distributions"]
 
-for sf in subfolders:
-    os.makedirs(savefig_root.joinpath(sf))
+# for sf in subfolders:
+#     os.makedirs(savefig_root.joinpath(sf))
 
 # %% MAKE AGG DFS
 
@@ -287,21 +287,21 @@ to_plot = [
         dfs_array=pickled_dfs,
         field_name="latency_s",
         binwidth=0.04,
-        suptitle=f"Latency: all trials in first 5 blocks",
+        suptitle=f"Latency: all trials in first {max_blocks_per_day + 1} blocks",
         xlabel="Latency to first call (s)",
     ),
     dict(
         dfs_array=pickled_dfs,
         field_name="n_calls",
         binwidth=1,
-        suptitle=f"# Calls / Trial: all trials in first 5 blocks",
+        suptitle=f"# Calls / Trial: all trials in first {max_blocks_per_day + 1} blocks",
         xlabel="# Calls / Trial",
     ),
     dict(
         dfs_array=calls_dfs,
         field_name="ici",
         binwidth=0.04,
-        suptitle=f"ICI: all trials in first 5 blocks",
+        suptitle=f"ICI: all trials in first {max_blocks_per_day + 1} blocks",
         xlabel="ICI (s)",
         ignore_nan=True,
     ),
