@@ -82,6 +82,19 @@ condition = {
     "bu88bu38": "saline",
 }
 
+colors_bird = {
+    "bu86bu36": "#FE5F55",  # "Bittersweet"
+    "bu88bu38": "#054A91",  # "Polynesian blue"
+}
+
+colors_day = {
+    1: [0.960949, 0.418323, 0.35963, 1.0],
+    2: [0.840636, 0.268953, 0.424666, 1.0],
+    3: [0.664915, 0.198075, 0.488836, 1.0],
+    4: [0.488088, 0.139186, 0.508011, 1.0],
+    5: [0.316654, 0.07169, 0.48538, 1.0],
+}
+
 
 def get_birdname(df):
     birdname = np.unique(df.index.get_level_values("birdname"))
@@ -226,6 +239,7 @@ for field_name, vrange in zip(field_names, measure_ranges):
             df.index.get_level_values("day"),
             df[field_name],
             label=f"{birdname} ({condition[birdname]})",
+            c=colors_bird[birdname],
         )
 
     ax.set(
@@ -293,6 +307,7 @@ to_plot = [
         binwidth=0.04,
         suptitle=f"Latency: all trials in first {max_blocks_per_day + 1} blocks",
         xlabel="Latency to first call (s)",
+        group_colors=colors_day,
     ),
     dict(
         dfs_array=pickled_dfs,
@@ -300,6 +315,7 @@ to_plot = [
         binwidth=1,
         suptitle=f"# Calls / Trial: all trials in first {max_blocks_per_day + 1} blocks",
         xlabel="# Calls / Trial",
+        group_colors=colors_day,
     ),
     dict(
         dfs_array=calls_dfs,
@@ -308,6 +324,7 @@ to_plot = [
         suptitle=f"ICI: all trials in first {max_blocks_per_day + 1} blocks",
         xlabel="ICI (s)",
         ignore_nan=True,
+        group_colors=colors_day,
     ),
 ]
 
