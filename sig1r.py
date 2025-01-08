@@ -34,19 +34,40 @@ from utils.plot import (
 pickle_folder = Path(r"F:\Sig1R-labels\processed-df\bubu")
 exclude_song = True
 
-def load_df(filename, exclude_song=False):
+
+def load_df(filename, df_key="df", exclude_song=False):
     with open(filename, "rb") as f:
-        df = pickle.load(f)["df"]
+        df = pickle.load(f)[df_key]
 
     if exclude_song:
         has_song = df["call_types"].apply(lambda x: "Song" in x)
+        print(f"Removing {sum(has_song)} trials with Song.")
         df = df.loc[~has_song]
 
     return df
 
 
-# array of dfs. 1 per bird
-pickled_dfs = [load_df(f, exclude_song=True) for f in list(pickle_folder.glob("*.pickle"))]
+files = list(pickle_folder.glob("*.pickle"))
+
+# array of dfs, 1 per bird. main dfs, where each row is a trial.
+pickled_dfs = [
+    load_df(
+        f,
+        df_key="df",
+        exclude_song=exclude_song,
+    )
+    for f in files
+]
+
+# array of dfs, 1 per bird. aux dfs, where each row is a call (or stim, syllable, etc.)
+calls_dfs = [
+    load_df(
+        f,
+        df_key="calls_all",
+        exclude_song=False,  # doesn't work for this df format
+    )
+    for f in files
+]
 
 pickled_dfs
 
@@ -60,6 +81,7 @@ condition = {
     "bu86bu36": "NE100",
     "bu88bu38": "saline",
 }
+
 
 def get_birdname(df):
     birdname = np.unique(df.index.get_level_values("birdname"))
@@ -205,7 +227,7 @@ for field_name, vrange in zip(field_names, measure_ranges):
     ax.set(
         xlabel="Day",
         ylabel=field_name,
-        title=f"{field_name}, mean of first {max_blocks_per_day + 1} blocks/ day"
+        title=f"{field_name}, mean of first {max_blocks_per_day + 1} blocks/ day",
     )
 
     ax.set_xticks(df.index.get_level_values("day"))
@@ -216,46 +238,69 @@ for field_name, vrange in zip(field_names, measure_ranges):
 
 # %% D1 vs D5 distribution (latency, n_calls)
 
-distribution_folder = savefig_root.joinpath(r"distributions")
+distribution_folder = savefig_root.joinpath(r"distributions-test")
 
-def distribution_plot(field_name, binwidth, suptitle, xlabel):
-    fig, axs = plt.subplots(nrows=2, sharex=True, sharey=True)
 
-    for df, ax in zip(pickled_dfs, axs):
-        birdname = get_birdname(df)
-        plot_group_hist(
-            df.loc[df.index.get_level_values("block") <= max_blocks_per_day],
-            field=field_name,
-            grouping_level="day",
-            groups_to_plot=(1, 5),
-            ax=ax,
-            binwidth=binwidth,
-            stair_kwargs={
-                "fill": True,
-                "alpha": 0.7,
-            },
+def distribution_plot(
+    dfs_array,
+    field_name,
+    binwidth,
+    suptitle,
+    xlabel,
+    day_groupings=((1, 3), (1, 5), (3, 5), (1, 3, 5)),
+):
+
+    for days in day_groupings:
+        d_label = "d" + "_".join([str(i) for i in days])
+        fig, axs = plt.subplots(nrows=2, sharex=True, sharey=True)
+
+        for df, ax in zip(dfs_array, axs):
+            birdname = get_birdname(df)
+            plot_group_hist(
+                df.loc[df.index.get_level_values("block") <= max_blocks_per_day],
+                field=field_name,
+                grouping_level="day",
+                groups_to_plot=days,
+                ax=ax,
+                binwidth=binwidth,
+                stair_kwargs={
+                    "fill": True,
+                    "alpha": 0.7,
+                },
+            )
+
+            ax.set(title=f"{birdname} ({condition[birdname]})")
+
+        fig.suptitle(suptitle)
+        axs[-1].set(xlabel=xlabel)
+
+        fig.savefig(
+            distribution_folder.joinpath(f"distribution-{field_name}-{d_label}.svg")
         )
+        plt.close()
 
-        ax.set(title=f"{birdname} ({condition[birdname]})")
-
-    fig.suptitle(suptitle)
-    axs[-1].set(xlabel=xlabel)
-
-    fig.savefig(distribution_folder.joinpath(f"distribution-{field_name}.svg"))
-    plt.close()
 
 to_plot = [
     dict(
+        dfs_array=pickled_dfs,
         field_name="latency_s",
         binwidth=0.04,
-        suptitle=f"Latency: all trials in first 5 blocks, d1 v. d5",
+        suptitle=f"Latency: all trials in first 5 blocks",
         xlabel="Latency to first call (s)",
     ),
     dict(
+        dfs_array=pickled_dfs,
         field_name="n_calls",
         binwidth=1,
-        suptitle=f"# Calls / Trial: all trials in first 5 blocks, d1 v. d5",
+        suptitle=f"# Calls / Trial: all trials in first 5 blocks",
         xlabel="# Calls / Trial",
+    ),
+    dict(
+        dfs_array=calls_dfs,
+        field_name="ici",
+        binwidth=0.06,
+        suptitle=f"ICI: all trials in first 5 blocks",
+        xlabel="ICI (s)",
     ),
 ]
 
