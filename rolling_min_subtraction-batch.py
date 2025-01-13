@@ -28,7 +28,7 @@ from utils.file import parse_birdname
 # get filelist
 # taken from file `breaths-make_df-plot`
 
-figure_save_folder = "./data/breath_figs/rolling_mean-multi"
+figure_save_folder = "./data/breath_figs/rolling_min-multi"
 
 default_bird = "rd56"  # only bird which fails name parsing
 exist_ok = True  # False --> error out if folder already exists
@@ -124,7 +124,7 @@ window_length = int(0.5 * fs)
 b_lp, a_lp = butter(N=2, Wn=50, btype="low", fs=fs)
 
 
-def make_rolling_mean_plot(
+def make_rolling_min_plot(
     x,
     breath_lowpass,
     breath_roll_min_subtr,
@@ -285,7 +285,7 @@ for i_file, file in enumerate(files):
     # ===== PLOTS ===== #
     fig_savepath = os.path.join(bird_folder, f"{basename}.jpg")
 
-    fig_multiplot, axs_multiplot = make_rolling_mean_plot(**data_dict)
+    fig_multiplot, axs_multiplot = make_rolling_min_plot(**data_dict)
     axs_multiplot.ravel()[0].set(title=basename)
 
     fig_multiplot.savefig(fig_savepath)
@@ -293,7 +293,7 @@ for i_file, file in enumerate(files):
 
 # %%
 
-pickle_file = os.path.join( figure_save_folder, "rolling_mean_subtracted.pickle")
+pickle_file = os.path.join( figure_save_folder, "rolling_min_subtracted.pickle")
 
 df = pd.DataFrame.from_records(processed_data).set_index("i_file")
 
