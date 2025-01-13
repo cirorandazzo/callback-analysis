@@ -185,17 +185,20 @@ def plot_amplitude_dist(breath, ax, binwidth=100, leftmost=None, rightmost=None)
         linestyles="--",
         alpha=0.5,
         zorder=3,
+        label="p25 & p75",
     )
 
+    median_multiples = (1, 1.5, 2)
     # median & multiples: red lines
     ax.vlines(
-        x=[q * np.median(breath) for q in (1, 1.5, 2)],
+        x=[q * np.median(breath) for q in median_multiples],
         ymin=0,
         ymax=max(hist),
         color="r",
         linestyles=":",
         alpha=0.5,
         zorder=3,
+        label = f"median * {median_multiples}",
     )
 
 
@@ -435,7 +438,7 @@ fig.tight_layout()
 # rolling median: amplitude distributions
 
 window_length = int(0.7 * fs)
-bw = 50  # 100
+binwidth = 50  # 100
 
 fig_wave, axs_wave = plt.subplots(
     ncols=len(files), nrows=2, sharex=True, figsize=(24, 10)
@@ -478,25 +481,25 @@ for i_file, file in enumerate(files):
     # plot distributions
     ax_lp_dist = axs_dist[i_file, 0]
     ax_lp_dist.set(title=os.path.basename(file))
-    plot_amplitude_dist(breath_lowpass, ax_lp_dist, binwidth=bw)
+    plot_amplitude_dist(breath_lowpass, ax_lp_dist, binwidth=binwidth)
 
     ax_bp_dist = axs_dist[i_file, 1]
-    plot_amplitude_dist(breath_bandpass, ax_bp_dist, binwidth=bw)
+    plot_amplitude_dist(breath_bandpass, ax_bp_dist, binwidth=binwidth)
 
     # plot fitted distribution
     x_dist = np.linspace(breath_bandpass.min(), breath_bandpass.max(), 100)
     kde = gaussian_kde(breath_bandpass)
-    p = kde(x_dist)
+    dist_kde = kde(x_dist)
 
     # get indices of highest 2 peaks - should be insp/exp levels
-    peaks = find_peaks(p)[0]
-    top2 = sorted(peaks[np.argsort(p[peaks])][-2:])
+    x_peaks = find_peaks(dist_kde)[0]
+    top2 = sorted(x_peaks[np.argsort(dist_kde[x_peaks])][-2:])
 
-    trough = top2[0] + np.argmin(p[np.arange(*top2)])
+    trough = top2[0] + np.argmin(dist_kde[np.arange(*top2)])
 
-    ax_bp_dist.plot(x_dist, p, color="k")
-    ax_bp_dist.scatter(x_dist[top2], p[top2], color="r", marker="+", s=16, zorder=3)
-    ax_bp_dist.scatter(x_dist[trough], p[trough], color="r", marker="+", s=16, zorder=3)
+    ax_bp_dist.plot(x_dist, dist_kde, color="k")
+    ax_bp_dist.scatter(x_dist[top2], dist_kde[top2], color="r", marker="+", s=16, zorder=3)
+    ax_bp_dist.scatter(x_dist[trough], dist_kde[trough], color="r", marker="+", s=16, zorder=3)
 
 
 axs_wave[0, 0].set(ylabel="amplitude")
@@ -511,7 +514,7 @@ fig_dist.tight_layout()
 # threshold from amplitude distr fit
 
 window_length = int(0.7 * fs)
-bw = 50
+binwidth = 50
 
 fig_wave, axs_wave = plt.subplots(
     ncols=len(files), nrows=2, sharex=True, figsize=(24, 10)
@@ -544,25 +547,25 @@ for i_file, file in enumerate(files):
     # plot distributions
     ax_lp_dist = axs_dist[i_file, 0]
     ax_lp_dist.set(title=os.path.basename(file))
-    plot_amplitude_dist(breath_lowpass, ax_lp_dist, binwidth=bw)
+    plot_amplitude_dist(breath_lowpass, ax_lp_dist, binwidth=binwidth)
 
     ax_bp_dist = axs_dist[i_file, 1]
-    plot_amplitude_dist(breath_bandpass, ax_bp_dist, binwidth=bw)
+    plot_amplitude_dist(breath_bandpass, ax_bp_dist, binwidth=binwidth)
 
     # plot fitted distribution
     x_dist = np.linspace(breath_bandpass.min(), breath_bandpass.max(), 100)
     kde = gaussian_kde(breath_bandpass)
-    p = kde(x_dist)
+    dist_kde = kde(x_dist)
 
     # get indices of highest 2 peaks - should be insp/exp levels
-    peaks = find_peaks(p)[0]
-    top2 = sorted(peaks[np.argsort(p[peaks])][-2:])
+    x_peaks = find_peaks(dist_kde)[0]
+    top2 = sorted(x_peaks[np.argsort(dist_kde[x_peaks])][-2:])
 
-    trough = top2[0] + np.argmin(p[np.arange(*top2)])
+    trough = top2[0] + np.argmin(dist_kde[np.arange(*top2)])
 
-    ax_bp_dist.plot(x_dist, p, color="k")
-    ax_bp_dist.scatter(x_dist[top2], p[top2], color="r", marker="+", s=16, zorder=3)
-    ax_bp_dist.scatter(x_dist[trough], p[trough], color="r", marker="+", s=16, zorder=3)
+    ax_bp_dist.plot(x_dist, dist_kde, color="k")
+    ax_bp_dist.scatter(x_dist[top2], dist_kde[top2], color="r", marker="+", s=16, zorder=3)
+    ax_bp_dist.scatter(x_dist[trough], dist_kde[trough], color="r", marker="+", s=16, zorder=3)
     
     # get insps/exps
     exps, insps = segment_breaths(
@@ -615,7 +618,7 @@ fig_dist.tight_layout()
 
 # ideally at breathing rate ,so you always normalize to most recent insp
 window_length = int(0.5 * fs)
-bw = 50
+binwidth = 50
 
 fig_wave, axs_wave = plt.subplots(
     ncols=len(files), nrows=2, sharex=True, figsize=(24, 10)
@@ -648,30 +651,29 @@ for i_file, file in enumerate(files):
     # plot distributions
     ax_lp_dist = axs_dist[i_file, 0]
     ax_lp_dist.set(title=os.path.basename(file))
-    plot_amplitude_dist(breath_lowpass, ax_lp_dist, binwidth=bw)
+    plot_amplitude_dist(breath_lowpass, ax_lp_dist, binwidth=binwidth)
 
     ax_bp_dist = axs_dist[i_file, 1]
-    plot_amplitude_dist(breath_bandpass, ax_bp_dist, binwidth=bw)
+    plot_amplitude_dist(breath_bandpass, ax_bp_dist, binwidth=binwidth)
 
     # plot fitted distribution
     x_dist = np.linspace(breath_bandpass.min(), breath_bandpass.max(), 100)
     kde = gaussian_kde(breath_bandpass)
-    p = kde(x_dist)
+    dist_kde = kde(x_dist)
 
-    
-    peaks = find_peaks(p)[0]
+    x_peaks = find_peaks(dist_kde)[0]
 
     # push closest peak to 0; should be the case with rolling min subtraction
-    if p[0] > p[min(peaks)]:
-        peaks[peaks.argmin()] = 0
+    if dist_kde[0] > dist_kde[min(x_peaks)]:
+        x_peaks[x_peaks.argmin()] = 0
 
-    top2 = sorted(peaks[np.argsort(p[peaks])][-2:]) # get indices of highest 2 peaks.
+    top2 = sorted(x_peaks[np.argsort(dist_kde[x_peaks])][-2:]) # get indices of highest 2 peaks.
 
-    trough = top2[0] + np.argmin(p[np.arange(*top2)])
+    trough = top2[0] + np.argmin(dist_kde[np.arange(*top2)])  # location of minimum value between these points
 
-    ax_bp_dist.plot(x_dist, p, color="k")
-    ax_bp_dist.scatter(x_dist[top2], p[top2], color="r", marker="+", s=16, zorder=3)
-    ax_bp_dist.scatter(x_dist[trough], p[trough], color="r", marker="+", s=16, zorder=3)
+    ax_bp_dist.plot(x_dist, dist_kde, color="k")
+    ax_bp_dist.scatter(x_dist[top2], dist_kde[top2], color="#EE893B", marker="+", s=16, zorder=3, label="peaks")
+    ax_bp_dist.scatter(x_dist[trough], dist_kde[trough], color="r", marker="+", s=16, zorder=3, label="threshold")
     
     # get insps/exps
     exps, insps = segment_breaths(
@@ -682,23 +684,25 @@ for i_file, file in enumerate(files):
     )
     # plot lp waveform
     ax_lp = axs_wave[i_file, 0]
-    ax_lp.plot(x, breath_lowpass, linewidth=0.5)
-    ax_lp.plot(x, rolling_min, linewidth=0.5, color=[1,1,0])
+    ax_lp.plot(x, breath_lowpass, linewidth=0.5, label="lowpass breath")
+    ax_lp.plot(x, rolling_min, linewidth=0.5, color="#EF6F6C", label="rolling min")
     ax_lp.set(title=os.path.basename(file))
     ax_lp.scatter(
         x[exps],
         breath_lowpass[exps],
+        label="exp",
         **plot_kwargs_exp,
     )
     ax_lp.scatter(
         x[insps],
         breath_lowpass[insps],
+        label="insp",
         **plot_kwargs_insp,
     )
 
     # plot bp waveform
     ax_bp = axs_wave[i_file, 1]
-    ax_bp.plot(x, breath_bandpass, linewidth=0.5) 
+    ax_bp.plot(x, breath_bandpass, linewidth=0.5, label="rolling min subtracted")
     ax_bp.scatter(
         x[exps],
         breath_bandpass[exps],
@@ -710,6 +714,8 @@ for i_file, file in enumerate(files):
         **plot_kwargs_insp,
     )
 
+axs_wave[0, 0].legend()
+axs_dist[0, 1].legend()
 
 axs_wave[0, 0].set(ylabel="amplitude")
 axs_wave[1, 1].set(xlabel="time since block onset (s)")
