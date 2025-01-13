@@ -72,6 +72,7 @@ plot_kwargs_distr_marker = {
     "zorder": 3,
 }
 
+
 def plot_amplitude_dist(breath, ax, binwidth=100, leftmost=None, rightmost=None):
     # hist, edges = np.histogram(breath, bins=50, density=True)
 
@@ -119,7 +120,6 @@ def plot_amplitude_dist(breath, ax, binwidth=100, leftmost=None, rightmost=None)
 # ideally at breathing rate ,so you always normalize to most recent insp
 window_length = int(0.5 * fs)
 
-
 # lowpass
 b_lp, a_lp = butter(N=2, Wn=50, btype="low", fs=fs)
 
@@ -135,7 +135,7 @@ def make_rolling_min_plot(
     trough,
     exps,
     insps,
-    binwidth = 50,
+    binwidth=50,
     **unused_kwargs,
 ):
     fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(10, 10))
@@ -153,7 +153,7 @@ def make_rolling_min_plot(
 
     plot_amplitude_dist(breath_roll_min_subtr, ax_rm_dist, binwidth=binwidth)
 
-    ax_rm_dist.plot(x_dist, dist_kde, color="k")  
+    ax_rm_dist.plot(x_dist, dist_kde, color="k")
     ax_rm_dist.scatter(  # mark highest 2 peaks
         x_dist[top2],
         dist_kde[top2],
@@ -293,7 +293,7 @@ for i_file, file in enumerate(files):
 
 # %%
 
-pickle_file = os.path.join( figure_save_folder, "rolling_min_subtracted.pickle")
+pickle_file = os.path.join(figure_save_folder, "rolling_min_subtracted.pickle")
 
 df = pd.DataFrame.from_records(processed_data).set_index("i_file")
 

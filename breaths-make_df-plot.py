@@ -166,7 +166,9 @@ for file in np.unique(all_trials.index.get_level_values("wav_filename")):
     # for each stim trial in this audio file
     for t in stim_trials.index:
         # make metadata for json
-        plot_filename = os.path.normpath(os.path.join(audiofile_plot_folder, f"tr{t}.jpg"))
+        plot_filename = os.path.normpath(
+            os.path.join(audiofile_plot_folder, f"tr{t}.jpg")
+        )
 
         metadata = {
             k: stim_trials.loc[t, k]
