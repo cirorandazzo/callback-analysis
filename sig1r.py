@@ -265,6 +265,7 @@ def distribution_plot(
     binwidth,
     suptitle,
     xlabel,
+    xlim=[None, None],
     day_groupings=((1, 3), (1, 5), (3, 5), (1, 3, 5)),
     **plot_group_hist_kwargs,
 ):
@@ -292,7 +293,7 @@ def distribution_plot(
             ax.set(title=f"{birdname} ({condition[birdname]})")
 
         fig.suptitle(suptitle)
-        axs[-1].set(xlabel=xlabel)
+        axs[-1].set(xlabel=xlabel, xlim=xlim)
 
         fig.savefig(
             distribution_folder.joinpath(f"distribution-{field_name}-{d_label}.svg")
@@ -307,6 +308,8 @@ to_plot = [
         binwidth=0.04,
         suptitle=f"Latency: all trials in first {max_blocks_per_day + 1} blocks",
         xlabel="Latency to first call (s)",
+        xlim=[0, 3],
+        ignore_nan="non/total",
         group_colors=colors_day,
     ),
     dict(
@@ -315,6 +318,7 @@ to_plot = [
         binwidth=1,
         suptitle=f"# Calls / Trial: all trials in first {max_blocks_per_day + 1} blocks",
         xlabel="# Calls / Trial",
+        ignore_nan=True,
         group_colors=colors_day,
     ),
     dict(
