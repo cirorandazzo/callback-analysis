@@ -13,8 +13,11 @@ from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plt
 
 from utils.audio import AudioObject
-from utils.breath import segment_breaths
+from utils.breath import make_notmat_vars, segment_breaths
+from utils.callbacks import call_mat_stim_trial_loader
+from utils.evfuncs import segment_notes
 from utils.file import parse_birdname
+from utils.video import get_triggers_from_audio
 
 # %%
 # %load_ext autoreload
@@ -28,7 +31,7 @@ from utils.file import parse_birdname
 # get filelist
 # taken from file `breaths-make_df-plot`
 
-figure_save_folder = "./data/breath_figs/rolling_min-multi"
+figure_save_folder = "./data/rolling_min-multi"
 
 default_bird = "rd56"  # only bird which fails name parsing
 exist_ok = True  # False --> error out if folder already exists
@@ -200,6 +203,10 @@ def make_rolling_min_plot(
 
     return fig, axs
 
+
+# %%
+# PROCESS DATA
+
 processed_data = []
 
 for i_file, file in enumerate(files):
@@ -305,3 +312,91 @@ print(f"Successfully dumped data to: {pickle_file}")
 # %%
 
 df
+
+# %%
+# MAKE TRIAL-INDEXED DF
+
+all_trials = []
+
+for i_file in df.index:
+
+    f, breath, exps, insps = [
+        df.loc[i_file, col]
+        for col in ("file", "breath_roll_min_subtr", "exps", "insps")
+    ]
+
+    # load audio
+    channels = AudioObject.from_wav(
+        f, channels="all", channel_names=["audio", "breathing", "trigger"]
+    )
+
+    assert fs == channels[1].fs
+
+    # threshold stimuli; assume 100ms length
+    stims = get_triggers_from_audio(channels[2].audio, crossing_direction="down") / fs
+
+    # segment breaths based on smoothed waveform
+    centering = lambda x: np.percentile(x, 45)
+    breath_zero_point = centering(breath)
+
+    # get onsets, offsets, labels
+    onsets, offsets, labels = make_notmat_vars(
+        exps, insps, len(breath), exp_label="exp", insp_label="insp"
+    )
+    onsets = onsets / fs
+    offsets = offsets / fs
+
+    calls_on, calls_off = segment_notes(
+        smooth=breath, fs=fs, min_int=10, min_dur=0, threshold=np.percentile(breath, 98)
+    )
+
+    # mimic .not.mat format
+    data = {
+        "onsets": np.concatenate([onsets, calls_on, stims]) * 1000,
+        "offsets": np.concatenate([offsets, calls_off, stims + 0.1]) * 1000,
+        "labels": np.concatenate(
+            [labels, ["call"] * len(calls_on), ["Stimulus"] * len(stims)]
+        ),
+    }
+
+    calls, stim_trials, rejected_trials, file_info, call_types = (
+        call_mat_stim_trial_loader(
+            file=None,
+            data=data,
+            from_notmat=True,
+            verbose=False,
+            acceptable_call_labels=["Stimulus", "exp", "insp", "call"],
+        )
+    )
+
+    stim_trials["wav_filename"] = f
+    stim_trials["breath_zero_point"] = breath_zero_point
+
+    # putative stim phase: for now just "exp" or "insp", based on first "call"
+    stim_trials["stim_phase"] = stim_trials["calls_in_range"].apply(
+        lambda x: calls.loc[x[0], "type"] if len(x) > 0 else "error"
+    )
+
+    # putative calls: based on amplitude segmentation
+    putative_calls = list(calls.loc[calls["type"] == "call"].index)
+    stim_trials["putative_call"] = stim_trials["calls_in_range"].apply(
+        lambda x: any([y in putative_calls for y in x])
+    )
+
+    all_trials.append(
+        stim_trials.reset_index().set_index(["wav_filename", "stims_index"]),
+    )
+
+all_trials = pd.concat(all_trials)  # concat file by file df
+
+all_trials
+
+# %%
+# PICKLE TRIAL-INDEXED DF
+
+pickle_file = os.path.join(figure_save_folder, "rolling_min_subtracted-by_trial.pickle")
+
+with open(pickle_file, "wb") as f:
+    pickle.dump(all_trials, f)
+
+print(f"Successfully dumped data to: {pickle_file}")
