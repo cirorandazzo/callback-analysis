@@ -1,6 +1,7 @@
 # %%
 #
 
+import json
 import glob
 import os
 import pickle
@@ -13,10 +14,10 @@ from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plt
 
 from utils.audio import AudioObject
-from utils.breath import make_notmat_vars, segment_breaths
+from utils.breath import make_notmat_vars, plot_breath_callback_trial, segment_breaths
 from utils.callbacks import call_mat_stim_trial_loader
 from utils.evfuncs import segment_notes
-from utils.file import parse_birdname
+from utils.file import parse_birdname, parse_parameter_from_string
 from utils.video import get_triggers_from_audio
 
 # %%
@@ -400,3 +401,166 @@ with open(pickle_file, "wb") as f:
     pickle.dump(all_trials, f)
 
 print(f"Successfully dumped data to: {pickle_file}")
+
+
+# %%
+# plot & make json records
+
+exist_ok = True  # False --> error out if folder already exists
+skip_replot = True  # True --> if the plot path already exists, skip replot (just process metadata)
+
+pre_time_s = 0.1
+post_time_s = 3.1
+ylims = [-3500, 10000]
+figure_root_dir = "./data/rolling_min-trace"
+
+records = {}
+for file in all_trials.index.get_level_values("wav_filename").unique():
+    i_file = np.flatnonzero(df["file"] == file)
+    assert (
+        len(i_file) == 1
+    ), f"Must be exactly one row in df with this filename! Found {len(i_file)}. Filename: {file}."
+    i_file = i_file[0]
+
+    # paths
+    root = os.path.splitext(file)[0]  # entire filename without extension
+    basename = os.path.split(root)[-1]
+
+    # metadata
+    try:
+        bird = parse_birdname(root)
+        # bird = "rd56"
+    except TypeError:
+        if default_bird is not None:
+            bird = default_bird
+        else:
+            raise TypeError(
+                f"Couldn't parse birdname from: {root}\nIf this bird just has one band, you should find this and hard-code its name."
+            )
+
+    block = int(parse_parameter_from_string(root, "Block", chars_to_ignore=0))
+
+    # load audio & relevant stims
+    stim_trials = all_trials.xs(file)
+    ao = AudioObject.from_wav(file, channels=1)
+
+    audiofile_plot_folder = os.path.join(figure_root_dir, bird, basename)
+    os.makedirs(audiofile_plot_folder, exist_ok=exist_ok)
+
+    # for each stim trial in this audio file
+    for t in stim_trials.index:
+        # make metadata for json
+        plot_filename = os.path.normpath(
+            os.path.join(audiofile_plot_folder, f"tr{t}.jpg")
+        )
+
+        metadata = {
+            k: stim_trials.loc[t, k]
+            for k in [
+                "trial_start_s",
+                "trial_end_s",
+                "calls_index",
+                "stim_phase",
+                "putative_call",
+                "breath_zero_point",
+            ]
+        }
+        metadata["wav_filename"] = file
+        metadata["trial"] = t
+        metadata["bird"] = bird
+        metadata["block"] = block
+        metadata["call_types"] = np.unique(stim_trials.loc[t, "call_types"])
+        metadata["plot_id"] = f"{basename}-tr{t}"
+        metadata["plot_filename"] = plot_filename
+
+        st = metadata["trial_start_s"]
+        en = metadata["trial_end_s"]
+
+        if np.isinf(metadata["trial_end_s"]):
+            metadata["trial_end_s"] = "Inf"
+
+        breath = df.loc[i_file, "breath_roll_min_subtr"]
+
+        fig, ax = plt.subplots(figsize=(10, 5))
+
+        if not os.path.exists(plot_filename) or not skip_replot:
+            ax = plot_breath_callback_trial(
+                audio=breath,
+                fs=ao.fs,
+                stim_trial=stim_trials.loc[t],
+                y_breath_labels=metadata["breath_zero_point"],
+                pre_time_s=pre_time_s,
+                post_time_s=post_time_s,
+                ylims=ylims,
+                st=st,
+                en=en,
+                ax=ax,
+                color_dict={"exp": "r", "insp": "b"},
+            )
+
+            ax.set(title=metadata["plot_id"])
+
+            fig.savefig(plot_filename)
+        records[metadata["plot_id"]] = metadata
+        plt.close()
+
+records
+
+# %%
+# MERGE JSONS
+
+json_filename = "./data/breath_figs/plot_metadata.json"
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        # Handle numpy scalar types (e.g., np.int64, np.float64)
+        if isinstance(obj, np.generic):
+            return obj.item()  # Convert to native Python type (e.g., int, float)
+
+        # Handle numpy arr` ays (convert to a list)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+
+        # Fallback to the default method for other types
+        return super().default(obj)
+
+
+# get old records
+if os.path.exists(json_filename):
+    with open(json_filename, "r") as jf:
+        extant_records = {x["plot_id"]: x for x in json.loads(jf.read())}
+else:
+    extant_records = {}
+
+# adds new records, overwriting extant records with same plot id
+for id, data in records.items():
+    # plot
+    data["plot_filename"] = {
+        "rolling_min": data["plot_filename"],
+    }
+
+    extant_plot_data = extant_records[id]["plot_filename"]
+
+    if isinstance(extant_plot_data, str):  # first batch: just 1 plot type
+        data["plot_filename"]["original"] = extant_plot_data
+    elif isinstance(extant_plot_data, dict):  # is a dict; overwrite metadata
+        data["plot_filename"] = {**extant_plot_data, **data["plot_filename"]}
+    else:
+        raise TypeError("Unknown type of extant_plot_data")
+
+    # remove some keys - not the same across plots
+    [data.pop(x) for x in ("breath_zero_point", "calls_index")]
+
+    # overwrite extant records
+    extant_records[id] = data
+
+# write records
+with open(json_filename, "w") as f:
+    # sorts by key before dumping
+    json.dump(
+        [extant_records[k] for k in sorted(extant_records.keys())],
+        f,
+        indent=4,
+        cls=NumpyEncoder,
+    )
