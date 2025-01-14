@@ -402,6 +402,14 @@ with open(pickle_file, "wb") as f:
 
 print(f"Successfully dumped data to: {pickle_file}")
 
+# %%
+# PICKLE LOAD ALL_TRIALS & DF
+
+with open(r".\data\rolling_min-multi\rolling_min_subtracted-by_trial.pickle", "rb") as f:
+    all_trials = pickle.load(f)
+
+with open(r".\data\rolling_min-multi\rolling_min_subtracted.pickle", "rb") as f:
+    df = pickle.load(f)
 
 # %%
 # plot & make json records
@@ -412,7 +420,7 @@ skip_replot = True  # True --> if the plot path already exists, skip replot (jus
 pre_time_s = 0.1
 post_time_s = 3.1
 ylims = [-3500, 10000]
-figure_root_dir = "./data/rolling_min-trace"
+figure_root_dir = "./data/rolling_min_seg-filtered_trace"
 
 records = {}
 for file in all_trials.index.get_level_values("wav_filename").unique():
@@ -479,7 +487,7 @@ for file in all_trials.index.get_level_values("wav_filename").unique():
         if np.isinf(metadata["trial_end_s"]):
             metadata["trial_end_s"] = "Inf"
 
-        breath = df.loc[i_file, "breath_roll_min_subtr"]
+        breath = df.loc[i_file, "breath_lowpass"]
 
         fig, ax = plt.subplots(figsize=(10, 5))
 
@@ -488,7 +496,7 @@ for file in all_trials.index.get_level_values("wav_filename").unique():
                 breath=breath,
                 fs=ao.fs,
                 stim_trial=stim_trials.loc[t],
-                y_breath_labels=metadata["breath_zero_point"],
+                y_breath_labels="infer",
                 pre_time_s=pre_time_s,
                 post_time_s=post_time_s,
                 ylims=ylims,
@@ -537,7 +545,7 @@ else:
 for id, data in records.items():
     # plot
     data["plot_filename"] = {
-        "rolling_min": data["plot_filename"],
+        "lowpass_trace-rolling_min_seg": data["plot_filename"],
     }
 
     extant_plot_data = extant_records[id]["plot_filename"]
