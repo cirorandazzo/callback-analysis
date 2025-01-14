@@ -485,15 +485,15 @@ for file in all_trials.index.get_level_values("wav_filename").unique():
 
         if not os.path.exists(plot_filename) or not skip_replot:
             ax = plot_breath_callback_trial(
-                audio=breath,
+                breath=breath,
                 fs=ao.fs,
                 stim_trial=stim_trials.loc[t],
                 y_breath_labels=metadata["breath_zero_point"],
                 pre_time_s=pre_time_s,
                 post_time_s=post_time_s,
                 ylims=ylims,
-                st=st,
-                en=en,
+                st_s=st,
+                en_s=en,
                 ax=ax,
                 color_dict={"exp": "r", "insp": "b"},
             )
