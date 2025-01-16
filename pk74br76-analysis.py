@@ -126,11 +126,11 @@ plot_callback_raster_multiday(
     ax=ax_all,
     day_labels=drug_days,
     subday_level="raster_timepoint",
-    hline_block_kwargs = dict(
+    hline_block_kwargs=dict(
         colors="k",
         linestyles="dashed",
         linewidths=0.2,
-    )
+    ),
 )
 ax_all.get_legend().remove()
 ax_all.set(
@@ -164,7 +164,9 @@ for day in days:
     )
 
     fig.tight_layout()
-    fig.savefig(raster_folder.joinpath(f"{birdname}{tag}-{drug_days[day]}-d{int(day)}.svg"))
+    fig.savefig(
+        raster_folder.joinpath(f"{birdname}{tag}-{drug_days[day]}-d{int(day)}.svg")
+    )
     plt.close(fig)
 
 # %% PLOT HEATMAPS
@@ -185,7 +187,7 @@ for field_name, cmap_name, vrange in zip(field_names, cmaps, measure_ranges):
         ylabel="Block",
         title=f"{birdname}: {field_name}",
     )
-    ax.tick_params(axis='x', labelrotation=45)
+    ax.tick_params(axis="x", labelrotation=45)
 
     fig.savefig(heatmap_folder.joinpath(f"{birdname}-heatmap-{field_name}.svg"))
     plt.close()
@@ -216,7 +218,7 @@ for field_name, vrange in zip(field_names, measure_ranges):
     )
 
     ax.set_xticks(ticks=days, labels=[drug_days[d] for d in days])
-    ax.tick_params(axis='x', labelrotation=45)
+    ax.tick_params(axis="x", labelrotation=45)
     ax.legend()
 
     fig.tight_layout()
