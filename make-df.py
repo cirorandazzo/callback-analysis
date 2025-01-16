@@ -28,7 +28,7 @@ save_pickle_path = os.path.join(save_csv_directory, f"{bird}.pickle")
 # any stimulus_trials containing call types NOT in this list are excluded (this includes unlabeled, which are stored as 'USV'!!)
 acceptable_call_labels = ["Call", "Stimulus"]
 
-files = [f for f in glob.glob(processed_directory)]
+files = [f for f in glob.glob(processed_directory) if not "PostBlock" in f]
 
 files
 
@@ -151,6 +151,30 @@ all_birds
 
 # blocks = df.index.get_level_values(2)
 # df = df[blocks != 0]
+
+df
+
+# %%
+# plotting conveniences
+
+level_names = df.index.names
+df.reset_index(inplace=True)
+
+# add suffix "_washout"
+df["drug"] = df.apply(
+    lambda row: row["drug"] + "_washout" if row["time"] >= 6.5 else row["drug"], axis=1
+)
+
+# make washout day n + 0.5
+df["day"] = df.apply(
+    lambda row: row["day"] + 0.5 if row["time"] >= 6.5 else row["day"], axis=1
+)
+
+# "raster_timepoint" for correct ordering
+
+df["raster_timepoint"] = df.apply(lambda row: row["time"] + 0.01 * row["block"], axis=1)
+
+df.set_index(level_names, inplace=True)
 
 df
 

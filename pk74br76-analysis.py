@@ -22,7 +22,8 @@ from utils.plot import (
     plot_group_hist,
 )
 
-# %% AUTORELOAD
+# %%
+# AUTORELOAD
 
 # %load_ext autoreload
 # %autoreload 1
@@ -50,11 +51,17 @@ if exclude_song:
 
 df
 
-# %% PLOTTING SETTINGS
+# %%
+# PLOTTING SETTINGS
 
+# names courtesy of coolors.co
 colors_drug = {
     "saline": "#054A91",  # "Polynesian blue"
     "muscimol_0_1mM": "#FE5F55",  # "Bittersweet"
+    "muscimol_0_1mM_washout": "#FFAFA9",  # "Melon"
+    "gabazine_0_1mM": "#D1BCE3",  # "Thistle"
+    "baclofen_0_1mM": "#DF9A5E",  # "Buff"
+    "saclofen_0_1mM": "#B5A886",  # "Khaki"
 }
 
 drug_days = {}
@@ -100,8 +107,8 @@ cmaps = [
 measure_ranges = [None] * 3
 # %% PLOT RASTERS
 
-figsize_all_days = (4, 6)
-figsize_one_day = (4, 4)
+figsize_all_days = (5, 10)
+figsize_one_day = (5, 5)
 
 raster_folder = savefig_root.joinpath(r"rasters")
 
@@ -114,7 +121,17 @@ tag = ""
 # 1 plot containing all days & all blocks
 fig, ax_all = plt.subplots(figsize=figsize_all_days)
 
-plot_callback_raster_multiday(df.xs(birdname), ax=ax_all, day_labels=drug_days)
+plot_callback_raster_multiday(
+    df.xs(birdname).set_index("raster_timepoint", append=True),
+    ax=ax_all,
+    day_labels=drug_days,
+    subday_level="raster_timepoint",
+    hline_block_kwargs = dict(
+        colors="k",
+        linestyles="dashed",
+        linewidths=0.2,
+    )
+)
 ax_all.get_legend().remove()
 ax_all.set(
     xlim=xlim,
@@ -133,16 +150,21 @@ for day in days:
     df_day = df.xs((birdname, day))
 
     fig, ax_day = plt.subplots(figsize=figsize_one_day)
-    plot_callback_raster_multiblock(df_day, ax=ax_day)
+    plot_callback_raster_multiblock(
+        df_day.set_index("raster_timepoint", append=True),
+        ax=ax_day,
+        block_level_name="raster_timepoint",
+        show_block_axis=False,
+    )
 
     ax_day.set(
         xlim=xlim,
         ylim=(0, len(df_day)),
-        title=f"{birdname}: {drug_days[day]} (d{day})",
+        title=f"{birdname}: {drug_days[day]} (d{int(day)})",
     )
 
     fig.tight_layout()
-    fig.savefig(raster_folder.joinpath(f"{birdname}{tag}-{drug_days[day]}-d{day}.svg"))
+    fig.savefig(raster_folder.joinpath(f"{birdname}{tag}-{drug_days[day]}-d{int(day)}.svg"))
     plt.close(fig)
 
 # %% PLOT HEATMAPS
@@ -163,6 +185,7 @@ for field_name, cmap_name, vrange in zip(field_names, cmaps, measure_ranges):
         ylabel="Block",
         title=f"{birdname}: {field_name}",
     )
+    ax.tick_params(axis='x', labelrotation=45)
 
     fig.savefig(heatmap_folder.joinpath(f"{birdname}-heatmap-{field_name}.svg"))
     plt.close()
@@ -193,7 +216,10 @@ for field_name, vrange in zip(field_names, measure_ranges):
     )
 
     ax.set_xticks(ticks=days, labels=[drug_days[d] for d in days])
+    ax.tick_params(axis='x', labelrotation=45)
     ax.legend()
+
+    fig.tight_layout()
 
     fig.savefig(lineplot_folder.joinpath(f"lineplot-{field_name}.svg"))
     plt.close()
@@ -216,7 +242,7 @@ def distribution_plot(
 
     for keys in key_groupings:
         d_label = "__".join(keys)
-        fig, axs = plt.subplots(nrows= len(dfs_array), sharex=True, sharey=True)
+        fig, axs = plt.subplots(nrows=len(dfs_array), sharex=True, sharey=True)
 
         # in case of just 1
         try:
@@ -260,7 +286,6 @@ to_plot = [
         xlabel="Latency to first call (s)",
     ),
     dict(
-
         dfs_array=[df],
         group_colors=colors_drug,
         field_name="n_calls",
