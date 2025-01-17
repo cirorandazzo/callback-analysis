@@ -159,48 +159,7 @@ fig.tight_layout()
 
 # %%
 # plot amplitude histograms
-
-
-def plot_amplitude_dist(breath, ax, binwidth=100, leftmost=None, rightmost=None):
-    # hist, edges = np.histogram(breath, bins=50, density=True)
-
-    if leftmost is None:
-        leftmost = min(breath) - 2 * binwidth
-
-    if rightmost is None:
-        rightmost = max(breath) + 2 * binwidth
-
-    hist, edges = np.histogram(
-        breath, bins=np.arange(leftmost, rightmost, binwidth), density=True
-    )
-
-    ax.stairs(hist, edges, fill=True)
-
-    # 25 & 75th percentile: black lines
-    ax.vlines(
-        x=[np.percentile(breath, p) for p in (25, 75)],
-        ymin=0,
-        ymax=max(hist),
-        color="k",
-        linestyles="--",
-        alpha=0.5,
-        zorder=3,
-        label="p25 & p75",
-    )
-
-    median_multiples = (1, 1.5, 2)
-    # median & multiples: red lines
-    ax.vlines(
-        x=[q * np.median(breath) for q in median_multiples],
-        ymin=0,
-        ymax=max(hist),
-        color="r",
-        linestyles=":",
-        alpha=0.5,
-        zorder=3,
-        label = f"median * {median_multiples}",
-    )
-
+from utils.breath import plot_amplitude_dist
 
 fig, axs = plt.subplots(nrows=len(files), sharex=True)
 
