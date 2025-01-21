@@ -2,11 +2,11 @@
 import glob
 import json
 import os
+import pickle
 
 import numpy as np
 import pandas as pd
-from scipy.signal import butter, find_peaks, peak_prominences
-from scipy.stats import gaussian_kde
+from scipy.signal import butter
 
 import matplotlib.pyplot as plt
 
@@ -18,7 +18,13 @@ import matplotlib.pyplot as plt
 # %aimport utils.callbacks
 
 from utils.audio import AudioObject
-from utils.breath import segment_breaths, make_notmat_vars, plot_breath_callback_trial, plot_amplitude_dist
+from utils.breath import (
+    segment_breaths,
+    make_notmat_vars,
+    plot_breath_callback_trial,
+    plot_amplitude_dist,
+    fit_breath_distribution,
+)
 from utils.callbacks import call_mat_stim_trial_loader
 from utils.evfuncs import segment_notes
 from utils.file import parse_birdname, parse_parameter_from_string
@@ -47,7 +53,9 @@ for i, f in enumerate(files):
 
 
 # %%
-# plot distributions of filtered waveform
+# do amplitude KDE
+
+do_plots = False
 
 fs = 44100
 b, a = butter(N=2, Wn=50, btype="low", fs=fs)
@@ -61,6 +69,8 @@ plot_kwargs_distr_marker = {
 
 figure_save_folder = "./data/distributions"
 
+records = []
+
 for f in files:
 
     basename = os.path.splitext(os.path.basename(f))[0]
@@ -69,9 +79,6 @@ for f in files:
         birdname = parse_birdname(basename)
     except TypeError:
         birdname = "default"
-
-    bird_folder = os.path.join(figure_save_folder, birdname)
-    os.makedirs(bird_folder, exist_ok=True)
 
     # load audio
     channels = AudioObject.from_wav(
@@ -83,54 +90,67 @@ for f in files:
     channels[1].filtfilt(b, a)  # filter breathing
     breath = channels[1].audio_filt
 
-    fig, ax = plt.subplots()
-    plot_amplitude_dist(breath, ax, median_multiples=None, percentiles=None)
+    x_dist, dist_kde, trough_ii, peaks_ii = fit_breath_distribution(breath)
 
-    x_dist = np.linspace(breath.min(), breath.max(), 100)
-    kde = gaussian_kde(breath)
-    dist_kde = kde(x_dist)
+    peaks = dist_kde[peaks_ii]
+    threshold = dist_kde[trough_ii]
 
-    x_peaks = find_peaks(dist_kde)[0]
+    entry = {
+        "file": f,
+        "birdname": birdname,
+        "x_dist": x_dist,
+        "dist_kde": dist_kde,
+        "threshold": threshold,
+        "insp_peak": peaks[0],
+        "exp_peak": peaks[1],
+    }
 
-    prominences = peak_prominences(dist_kde, x_peaks)[0]
+    records.append(entry)
 
-    top2 = sorted(
-        x_peaks[np.argsort(prominences)][-2:]
-    )  # get indices of 2 most prominent peaks.
+    if do_plots:
+        fig, ax = plt.subplots()
+        bird_folder = os.path.join(figure_save_folder, birdname)
+        os.makedirs(bird_folder, exist_ok=True)
 
-    trough = top2[0] + np.argmin(
-        dist_kde[np.arange(*top2)]
-    )  # location of minimum value between these points
+        plot_amplitude_dist(breath, ax, median_multiples=None, percentiles=None)
 
-    points = top2 + [trough]
+        ax.plot(x_dist, dist_kde, color="k")
 
-    ax.plot(x_dist, dist_kde, color="k")
+        points = peaks_ii + [trough_ii]
 
-    ax.scatter(  # mark trough between those peaks
-        x_dist[points],
-        dist_kde[points],
-        color="r",
-        label="peaks & threshold",
-        **plot_kwargs_distr_marker,
-    )
+        ax.scatter(  # mark trough between those peaks
+            x_dist[points],
+            dist_kde[points],
+            color="r",
+            label="peaks & threshold",
+            **plot_kwargs_distr_marker,
+        )
 
-    ax.vlines(
-        x_dist[points],
-        ymin=0,
-        ymax=dist_kde[points],
-        color="r",
-        linewidth=1,
-        linestyle="--",
-    )
+        ax.vlines(  # add vertical lines from points to x axis
+            x_dist[points],
+            ymin=0,
+            ymax=dist_kde[points],
+            color="r",
+            linewidth=1,
+            linestyle="--",
+        )
 
-    ax.set(
-        title=basename,
-        xlabel="breath amplitude",
-        ylabel="density",
-    )
-    ax.legend()
+        ax.set(
+            title=basename,
+            xlabel="breath amplitude",
+            ylabel="density",
+        )
+        ax.legend()
 
-    fig.tight_layout()
-    fig.savefig( os.path.join(bird_folder, f"{basename}.jpg"), dpi=300)
+        fig.tight_layout()
+        fig.savefig(os.path.join(bird_folder, f"{basename}.jpg"), dpi=300)
 
-    plt.close(fig)
+        plt.close(fig)
+
+# %%
+# pickle distributions/thresholds
+
+df_kde = pd.DataFrame.from_records(records)
+
+with open(os.path.join(figure_save_folder, "distributions.pickle"), "wb") as f:
+    pickle.dump(df_kde, f)
