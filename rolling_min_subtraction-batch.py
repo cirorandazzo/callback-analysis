@@ -18,6 +18,7 @@ from utils.breath import make_notmat_vars, plot_breath_callback_trial, segment_b
 from utils.callbacks import call_mat_stim_trial_loader
 from utils.evfuncs import segment_notes
 from utils.file import parse_birdname, parse_parameter_from_string
+from utils.json import merge_json, NumpyEncoder
 from utils.video import get_triggers_from_audio
 
 # %%
@@ -519,21 +520,6 @@ records
 
 json_filename = "./data/breath_figs/plot_metadata.json"
 
-
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        # Handle numpy scalar types (e.g., np.int64, np.float64)
-        if isinstance(obj, np.generic):
-            return obj.item()  # Convert to native Python type (e.g., int, float)
-
-        # Handle numpy arr` ays (convert to a list)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-
-        # Fallback to the default method for other types
-        return super().default(obj)
-
-
 # get old records
 if os.path.exists(json_filename):
     with open(json_filename, "r") as jf:
@@ -541,27 +527,12 @@ if os.path.exists(json_filename):
 else:
     extant_records = {}
 
-# adds new records, overwriting extant records with same plot id
-for id, data in records.items():
-    # plot
-    data["plot_filename"] = {
-        "lowpass_trace-rolling_min_seg": data["plot_filename"],
-    }
-
-    extant_plot_data = extant_records[id]["plot_filename"]
-
-    if isinstance(extant_plot_data, str):  # first batch: just 1 plot type
-        data["plot_filename"]["original"] = extant_plot_data
-    elif isinstance(extant_plot_data, dict):  # is a dict; overwrite metadata
-        data["plot_filename"] = {**extant_plot_data, **data["plot_filename"]}
-    else:
-        raise TypeError("Unknown type of extant_plot_data")
-
-    # remove some keys - not the same across plots
-    [data.pop(x) for x in ("breath_zero_point", "calls_index")]
-
-    # overwrite extant records
-    extant_records[id] = data
+extant_records = merge_json(
+    records,
+    extant_records,
+    dict_fields={"plot_filename" : "lowpass_trace-rolling_min_seg"},
+    fields_to_remove=("breath_zero_point", "calls_index"),
+)
 
 # write records
 with open(json_filename, "w") as f:

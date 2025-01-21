@@ -21,6 +21,7 @@ from utils.breath import segment_breaths, make_notmat_vars, plot_breath_callback
 from utils.callbacks import call_mat_stim_trial_loader
 from utils.evfuncs import segment_notes
 from utils.file import parse_birdname, parse_parameter_from_string
+from utils.json import merge_json, NumpyEncoder
 from utils.video import get_triggers_from_audio
 
 # %%
@@ -226,21 +227,8 @@ records
 # dump json records
 
 
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        # Handle numpy scalar types (e.g., np.int64, np.float64)
-        if isinstance(obj, np.generic):
-            return obj.item()  # Convert to native Python type (e.g., int, float)
-
-        # Handle numpy arr` ays (convert to a list)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-
-        # Fallback to the default method for other types
-        return super().default(obj)
-
-
-json_filename = os.path.join(figure_root_dir, "plot_metadata.json")
+# json_filename = os.path.join(figure_root_dir, "plot_metadata.json")
+json_filename = r".\data\breath_figs\plot_metadata.json"
 
 # get old records
 if os.path.exists(json_filename):
@@ -249,9 +237,12 @@ if os.path.exists(json_filename):
 else:
     extant_records = {}
 
-# adds new records, overwriting extant records with same plot id
-for k, v in records.items():
-    extant_records[k] = v
+extant_records = merge_json(
+    records,
+    extant_records,
+    dict_fields={"plot_filename" : "kde-threshold"},
+    fields_to_remove=("breath_zero_point", "calls_index"),
+)
 
 # write records
 with open(json_filename, "w") as f:
