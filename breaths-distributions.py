@@ -5,7 +5,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from scipy.signal import butter, find_peaks
+from scipy.signal import butter, find_peaks, peak_prominences
 from scipy.stats import gaussian_kde
 
 import matplotlib.pyplot as plt
@@ -30,7 +30,7 @@ from utils.video import get_triggers_from_audio
 paths = [
     r"M:/eszter/behavior/air sac calls/HVC lesion/aspiration/rd99rd72/preLesion/callbacks/rand/230215/*-B*.wav",
     r"M:/eszter/behavior/air sac calls/HVC lesion/aspiration/pk19br8/preLesion/callback/rand/**/*-B*.wav",
-    r"M:/eszter/behavior/air sac calls/HVC lesion/aspiration/rd56/preLesion/callbacks/male_230117/*-B*.wav",
+    # r"M:/eszter/behavior/air sac calls/HVC lesion/aspiration/rd56/preLesion/callbacks/male_230117/*-B*.wav",
     r"M:/eszter/behavior/air sac calls/HVC lesion/aspiration/rd57rd97/preLesion/callbacks/male_230117/*-B*.wav",
 ]
 
@@ -92,9 +92,11 @@ for f in files:
 
     x_peaks = find_peaks(dist_kde)[0]
 
+    prominences = peak_prominences(dist_kde, x_peaks)[0]
+
     top2 = sorted(
-        x_peaks[np.argsort(dist_kde[x_peaks])][-2:]
-    )  # get indices of highest 2 peaks.
+        x_peaks[np.argsort(prominences)][-2:]
+    )  # get indices of 2 most prominent peaks.
 
     trough = top2[0] + np.argmin(
         dist_kde[np.arange(*top2)]
