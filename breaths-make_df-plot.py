@@ -2,6 +2,7 @@
 import glob
 import json
 import os
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -17,7 +18,12 @@ import matplotlib.pyplot as plt
 # %aimport utils.callbacks
 
 from utils.audio import AudioObject
-from utils.breath import segment_breaths, make_notmat_vars, plot_breath_callback_trial
+from utils.breath import (
+    segment_breaths,
+    make_notmat_vars,
+    plot_breath_callback_trial,
+    get_kde_threshold,
+)
 from utils.callbacks import call_mat_stim_trial_loader
 from utils.evfuncs import segment_notes
 from utils.file import parse_birdname, parse_parameter_from_string
@@ -30,11 +36,13 @@ from utils.video import get_triggers_from_audio
 paths = [
     r"M:/eszter/behavior/air sac calls/HVC lesion/aspiration/rd99rd72/preLesion/callbacks/rand/230215/*-B*.wav",
     r"M:/eszter/behavior/air sac calls/HVC lesion/aspiration/pk19br8/preLesion/callback/rand/**/*-B*.wav",
-    r"M:/eszter/behavior/air sac calls/HVC lesion/aspiration/rd56/preLesion/callbacks/male_230117/*-B*.wav",
+    # r"M:/eszter/behavior/air sac calls/HVC lesion/aspiration/rd56/preLesion/callbacks/male_230117/*-B*.wav",  # this bird has wonky amplitude distributions
     r"M:/eszter/behavior/air sac calls/HVC lesion/aspiration/rd57rd97/preLesion/callbacks/male_230117/*-B*.wav",
 ]
 
-default_bird = "rd56"  # only bird which fails name parsing
+default_bird = None
+
+json_filename = r".\data\breath_figs\plot_metadata.json"
 
 # `*-B*` excludes "-PostBlock"
 
@@ -49,7 +57,7 @@ for i, f in enumerate(files):
 
 # %%
 # construct trial-by-trial df across all files
-all_trials = pd.DataFrame()
+all_trials = []
 
 fs = 44100
 b, a = butter(N=2, Wn=50, btype="low", fs=fs)
@@ -61,16 +69,18 @@ for f in files:
         f, channels="all", channel_names=["audio", "breathing", "trigger"]
     )
 
-    assert fs == channels[1].fs
-    breath = channels[1].audio
+    assert fs == channels[1].fs, "Wrong sample rate!"
+
+    channels[1].filtfilt(b, a)  # filter breathing
+    breath = channels[1].audio_filt
 
     # threshold stimuli; assume 100ms length
     stims = get_triggers_from_audio(channels[2].audio, crossing_direction="down") / fs
 
     # segment breaths based on smoothed waveform
-    centering = lambda x: np.percentile(x, 45)
+    breath_zero_point = get_kde_threshold(breath)
+    centering = lambda x: breath_zero_point
     exps, insps = segment_breaths(breath, channels[1].fs, threshold=centering, b=b, a=a)
-    breath_zero_point = centering(filtfilt(b, a, breath))
 
     # get onsets, offsets, labels
     onsets, offsets, labels = make_notmat_vars(
@@ -116,29 +126,36 @@ for f in files:
         lambda x: any([y in putative_calls for y in x])
     )
 
-    all_trials = pd.concat(
-        [
-            all_trials,
-            stim_trials.reset_index().set_index(["wav_filename", "stims_index"]),
-        ]
+    all_trials.append(
+        stim_trials.reset_index().set_index(["wav_filename", "stims_index"])
     )
 
+all_trials = pd.concat(all_trials).sort_index()
 
 all_trials
 
 # %%
-# plot & make json records
+# plot options
 
 exist_ok = True  # False --> error out if folder already exists
-skip_replot = True  # True --> if the plot path already exists, skip replot (just process metadata)
+skip_replot = False  # True --> if the plot path already exists, skip replot (just process metadata)
 
 pre_time_s = 0.1
 post_time_s = 3.1
 ylims = [-3500, 10000]
-figure_root_dir = "./data/breath_figs"
+figure_root_dir = "./data/breath_figs-spline_fit"
+
+# %%
+# pickle all_trials
+
+with open(os.path.join(figure_root_dir, "all_trials.pickle"), "wb") as f:
+    pickle.dump(all_trials, f)
+
+# %%
+# plot & make json records
 
 records = {}
-for file in np.unique(all_trials.index.get_level_values("wav_filename")):
+for file in all_trials.index.get_level_values("wav_filename").unique():
     # paths
     root = os.path.splitext(file)[0]  # entire filename without extension
     basename = os.path.split(root)[-1]
@@ -226,10 +243,6 @@ records
 # %%
 # dump json records
 
-
-# json_filename = os.path.join(figure_root_dir, "plot_metadata.json")
-json_filename = r".\data\breath_figs\plot_metadata.json"
-
 # get old records
 if os.path.exists(json_filename):
     with open(json_filename, "r") as jf:
@@ -240,7 +253,7 @@ else:
 extant_records = merge_json(
     records,
     extant_records,
-    dict_fields={"plot_filename" : "kde-threshold"},
+    dict_fields={"plot_filename": "kde-threshold"},
     fields_to_remove=("breath_zero_point", "calls_index"),
 )
 
