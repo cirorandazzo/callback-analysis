@@ -103,6 +103,8 @@ for f in files:
         "threshold": threshold,
         "insp_peak": peaks[0],
         "exp_peak": peaks[1],
+        "trough_ii": trough_ii,
+        "peaks_ii": peaks_ii,
     }
 
     records.append(entry)
@@ -147,10 +149,12 @@ for f in files:
 
         plt.close(fig)
 
+df_kde = pd.DataFrame.from_records(records)
+
+df_kde
+
 # %%
 # pickle distributions/thresholds
-
-df_kde = pd.DataFrame.from_records(records)
 
 with open(os.path.join(figure_save_folder, "distributions.pickle"), "wb") as f:
     pickle.dump(df_kde, f)
