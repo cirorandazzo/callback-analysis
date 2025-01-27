@@ -20,6 +20,10 @@ from scipy.signal import butter
 
 import matplotlib.pyplot as plt
 
+import umap
+
+plt.rcParams.update({"savefig.dpi": 400})
+
 from utils.audio import AudioObject
 from utils.breath import get_first_breath_segment
 from utils.file import parse_birdname
@@ -228,20 +232,18 @@ ax.set(
 plt.show()
 
 # %%
-
-breaths_mat = np.vstack(all_trials["breath"])
-
-breaths_mat.shape
-
-# %%
 # plot breath traces by insp bin
 
 save_folder = pathlib.Path("./data/insp_bins-offset")
 
+
+# get distr of offets
 all_insps = np.vstack(all_trials["ii_first_insp"]).T
 offsets_ms = all_insps[1, :] / fs * 1000
 
-hist, edges = np.histogram(offsets_ms, bins=20, range=(0, 840))
+
+# make & plot histogram
+hist, edges = np.histogram(offsets_ms, bins=40, range=(0, 840))
 
 fig, ax = plt.subplots()
 
@@ -256,13 +258,18 @@ fig.savefig(save_folder.joinpath("offset_distr.jpg"))
 plt.close(fig)
 
 
+# plot breath traces by bin
+insps_mat = np.vstack(
+    all_trials["breath"]
+)  # or use all_trials["insps_padded"] for insp only
+
 for bin in range(0, len(edges) - 1):
 
     # get trials in bin
     lower, upper = edges[bin : bin + 2]
     ii_bin = (offsets_ms >= lower) & (offsets_ms < upper)
     assert sum(ii_bin) == hist[bin]
-    breaths = breaths_mat[ii_bin, :].T
+    breaths = insps_mat[ii_bin, :].T
 
     # plot
     fig, ax = plt.subplots()
@@ -297,3 +304,61 @@ for bin in range(0, len(edges) - 1):
         save_folder.joinpath(f"offset_distr-bin{bin}-{int(lower)}_{int(upper)}ms.jpg")
     )
     plt.close(fig)
+
+
+# %%
+# make umap embedding
+
+insps_mat = np.vstack(all_trials["insps_padded"])
+
+umap_name = "embedding3"
+model = umap.UMAP(
+    n_neighbors=10,
+    min_dist=0.5,
+    metric="correlation",
+)
+
+embedding = model.fit_transform(insps_mat)
+
+
+# %%
+# plot umap
+
+all_insps = np.vstack(all_trials["ii_first_insp"]).T
+offsets_ms = all_insps[1, :] / fs * 1000
+
+fig, ax = plt.subplots()
+
+sc = ax.scatter(
+    embedding[:, 0],
+    embedding[:, 1],
+    s=4,
+    alpha=0.8,
+    c=offsets_ms,
+    cmap="viridis",
+)
+
+ax.set(
+    xlabel="UMAP1",
+    ylabel="UMAP2",
+    title=umap_name,
+)
+
+cbar = fig.colorbar(sc, label="insp offset (ms, stim-aligned)")
+
+
+# %%
+# save umap plot & embedding
+
+save_folder = pathlib.Path("./data/umap")
+
+with open( save_folder.joinpath(f"{umap_name}.pickle"), "wb") as f:
+    pickle.dump(
+        {
+            "model": model,
+            "embedding": embedding,
+        },
+        f,
+    )
+
+fig.savefig(save_folder.joinpath(f"{umap_name}.jpg"))
