@@ -11,13 +11,16 @@
 import glob
 import json
 import os
+import pathlib
 import pickle
 
 import numpy as np
 import pandas as pd
+from scipy.signal import butter
 
 import matplotlib.pyplot as plt
 
+from utils.audio import AudioObject
 from utils.breath import get_first_breath_segment
 from utils.file import parse_birdname
 
@@ -25,7 +28,7 @@ from utils.file import parse_birdname
 # parameters
 
 fs = 44100
-buffer_ms = 10
+buffer_ms = 500
 
 # %%
 # load `all_trials` dataframe
@@ -81,8 +84,6 @@ rejected
 #
 #
 
-buffer_fr = buffer_ms * fs / 1000
-
 hist_kwarg = dict(bins=30, alpha=0.5)
 
 
@@ -114,3 +115,86 @@ plot_timing_hist(all_trials, "all birds", **hist_kwarg)
 # by bird
 for birdname, all_trials_bird in all_trials.groupby(level="birdname"):
     plot_timing_hist(all_trials_bird, birdname, **hist_kwarg)
+
+
+# %%
+# get window encompassing all insps
+
+buffer_fr = int(buffer_ms * fs / 1000) + 1
+all_insps = np.vstack(all_trials["ii_first_insp"]).T
+
+window = (all_insps.min() - buffer_fr, all_insps.max() + buffer_fr)
+window
+
+# %%
+# get trace for whole window
+
+# filter
+b, a = butter(N=2, Wn=50, btype="low", fs=fs)
+
+
+def get_breath_for_trial(trial, breath, window, fs):
+
+    ii_audio = np.array(window) + int(trial["trial_start_s"] * fs)
+
+    # check if window extends past file end
+    if ii_audio[1] > len(breath):
+        missing_frames = ii_audio[1] - len(breath)
+
+        cut_breath = np.pad(
+            breath[ii_audio[0] :],
+            [0, missing_frames],
+        )
+
+    else:
+        cut_breath = breath[np.arange(*ii_audio)]
+
+    return cut_breath
+
+
+for wav_filename, file_trials in all_trials.groupby("wav_filename"):
+
+    breath = AudioObject.from_wav(wav_filename, channels=1, b=b, a=a).audio_filt
+
+    all_trials.loc[file_trials.index, "breath"] = file_trials.apply(
+        get_breath_for_trial,
+        axis=1,
+        breath=breath,
+        window=window,
+        fs=fs,
+    )
+
+    # TODO: store file zero point & min for normalizing inspirations
+
+all_trials
+
+
+# %%
+# get insp only trace (zero-padded to window size)
+
+
+def get_insp_trace(trial, window, pad_value=0):
+
+    breath = trial["breath"].copy()
+    insp_on, insp_off = trial["ii_first_insp"]
+
+    # CHECKS
+    pre_insp = insp_on - window[0]
+    assert pre_insp > 0, f"{window[0]} | {insp_on}"
+
+    post_insp = insp_off - window[1]
+    assert post_insp < 0, f"{window[1]} | {insp_off}"
+
+    # DO PADDING
+    breath[:pre_insp] = pad_value
+    breath[post_insp:] = pad_value
+
+    return breath
+
+
+all_trials.loc[:, "insps_padded"] = all_trials.apply(
+    get_insp_trace, axis=1, window=window
+)
+
+all_trials
+
