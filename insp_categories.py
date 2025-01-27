@@ -198,3 +198,102 @@ all_trials.loc[:, "insps_padded"] = all_trials.apply(
 
 all_trials
 
+# %%
+# plot all aligned traces
+
+fig, ax = plt.subplots()
+for bin in all_trials["breath"]:
+    ax.plot(np.arange(*window), bin)
+
+ax.set(
+    title="breaths",
+    xlabel="samples (stim-aligned)",
+    ylabel="amplitude",
+)
+
+plt.show()
+# %%
+# plot all aligned traces - insp only
+
+fig, ax = plt.subplots()
+for bin in all_trials["insps_padded"]:
+    ax.plot(np.arange(*window), bin)
+
+ax.set(
+    title="padded insps",
+    xlabel="samples (stim-aligned)",
+    ylabel="amplitude",
+)
+
+plt.show()
+
+# %%
+
+breaths_mat = np.vstack(all_trials["breath"])
+
+breaths_mat.shape
+
+# %%
+# plot breath traces by insp bin
+
+save_folder = pathlib.Path("./data/insp_bins-offset")
+
+all_insps = np.vstack(all_trials["ii_first_insp"]).T
+offsets_ms = all_insps[1, :] / fs * 1000
+
+hist, edges = np.histogram(offsets_ms, bins=20, range=(0, 840))
+
+fig, ax = plt.subplots()
+
+ax.stairs(hist, edges)
+ax.set(
+    xlabel="Insp offset (ms)",
+    ylabel="Count",
+    title="Insp offset distribution: all birds",
+)
+
+fig.savefig(save_folder.joinpath("offset_distr.jpg"))
+plt.close(fig)
+
+
+for bin in range(0, len(edges) - 1):
+
+    # get trials in bin
+    lower, upper = edges[bin : bin + 2]
+    ii_bin = (offsets_ms >= lower) & (offsets_ms < upper)
+    assert sum(ii_bin) == hist[bin]
+    breaths = breaths_mat[ii_bin, :].T
+
+    # plot
+    fig, ax = plt.subplots()
+
+    x = np.arange(*window) / fs * 1000
+
+    ax.plot(
+        x,
+        breaths,
+        linewidth=0.5,
+        alpha=0.7,
+    )
+
+    ax.plot(
+        x,
+        breaths.mean(axis=1),
+        linewidth=1,
+        alpha=1,
+        color="k",
+    )
+
+    ax.set(
+        xlabel="time (ms, stim-aligned)",
+        ylabel="amplitude",
+        title=f"Offset: [{lower}, {upper})ms. Count: {sum(ii_bin)}",
+    )
+
+    if upper < 500:
+        ax.set_xlim([-200, 500])
+
+    fig.savefig(
+        save_folder.joinpath(f"offset_distr-bin{bin}-{int(lower)}_{int(upper)}ms.jpg")
+    )
+    plt.close(fig)
