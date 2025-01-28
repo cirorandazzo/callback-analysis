@@ -215,7 +215,7 @@ all_trials
 # get insp only trace (zero-padded to window size)
 
 
-def get_insp_trace(trial, window, pad_value=0):
+def get_insp_trace(trial, window, pad_value=0, pad=True):
 
     breath = trial["breath"].copy()
     insp_on, insp_off = trial["ii_first_insp"]
@@ -228,14 +228,27 @@ def get_insp_trace(trial, window, pad_value=0):
     assert post_insp < 0, f"{window[1]} | {insp_off}"
 
     # DO PADDING
-    breath[:pre_insp] = pad_value
-    breath[post_insp:] = pad_value
+    if pad:
+        breath[:pre_insp] = pad_value
+        breath[post_insp:] = pad_value
+    else:
+        breath = breath[pre_insp:post_insp]
+
 
     return breath
 
 
 all_trials.loc[:, "insps_padded"] = all_trials.apply(
-    get_insp_trace, axis=1, window=window
+    get_insp_trace,
+    axis=1,
+    window=window,
+)
+
+all_trials.loc[:, "insps_unpadded"] = all_trials.apply(
+    get_insp_trace,
+    axis=1,
+    window=window,
+    pad=False,
 )
 
 all_trials
@@ -411,7 +424,7 @@ cbar = fig.colorbar(sc, label="insp offset (ms, stim-aligned)")
 
 save_folder = pathlib.Path("./data/umap")
 
-with open( save_folder.joinpath(f"{umap_name}.pickle"), "wb") as f:
+with open(save_folder.joinpath(f"{umap_name}.pickle"), "wb") as f:
     pickle.dump(
         {
             "model": model,
