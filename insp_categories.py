@@ -175,7 +175,7 @@ window
 b, a = butter(N=2, Wn=50, btype="low", fs=fs)
 
 
-def get_breath_for_trial(trial, breath, window, fs):
+def get_breath_for_trial(trial, breath, window, fs, centered=False):
 
     ii_audio = np.array(window) + int(trial["trial_start_s"] * fs)
 
@@ -187,9 +187,11 @@ def get_breath_for_trial(trial, breath, window, fs):
             breath[ii_audio[0] :],
             [0, missing_frames],
         )
-
     else:
         cut_breath = breath[np.arange(*ii_audio)]
+
+    if centered:
+        cut_breath = cut_breath - trial["breath_zero_point"]
 
     return cut_breath
 
@@ -204,9 +206,9 @@ for wav_filename, file_trials in all_trials.groupby("wav_filename"):
         breath=breath,
         window=window,
         fs=fs,
+        centered=True,  # NOTE: this was initially false.
     )
-
-    # TODO: store file zero point & min for normalizing inspirations
+    # TODO: normalize between file zero point & min?
 
 all_trials
 
