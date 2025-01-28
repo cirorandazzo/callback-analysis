@@ -84,6 +84,44 @@ print("Rejected trials: no inspiration.")
 rejected
 
 # %%
+# plot duration histograms
+
+hist_kwarg = dict(alpha=0.5, color="green")
+
+def plot_duration_hist(all_trials, subtitle, binwidth=10, hist_min=0,hist_max=860, **hist_kwarg):
+    all_insps = np.vstack(all_trials["ii_first_insp"]).T
+
+    durations_ms = (all_insps[1, :] - all_insps[0, :]) / fs * 1000
+
+    fig, ax = plt.subplots()
+
+    # ax.hist(durations_ms, **hist_kwarg)
+
+    hist, edges = np.histogram(
+        durations_ms,
+        bins=np.arange(hist_min, hist_max, binwidth),
+    )
+    ax.stairs(hist, edges, fill=True,**hist_kwarg)
+
+    ax.set(
+        title=f"first inspiration duration: {subtitle}",
+        xlabel="duration (ms)",
+        ylabel="count",
+        xlim=[-10,360],
+    )
+
+    return fig, ax
+
+
+# all birds merged
+plot_duration_hist(all_trials, "all birds", **hist_kwarg)
+
+# by bird
+for birdname, all_trials_bird in all_trials.groupby(level="birdname"):
+    plot_duration_hist(all_trials_bird, birdname, **hist_kwarg)
+
+
+# %%
 # plot timing histograms
 #
 #
