@@ -292,7 +292,7 @@ save_folder = pathlib.Path("./data/insp_bins-offset")
 histogram_kwarg = dict(bins=40, range=(0, 840))
 
 
-def plot_hist_and_binned(all_trials, label, fs, window, save_folder, **histogram_kwarg):
+def plot_hist_and_binned(all_trials, label, fs, window, save_folder, color_by=None, **histogram_kwarg):
 
     all_insps = np.vstack(all_trials["ii_first_insp"]).T
     offsets_ms = all_insps[1, :] / fs * 1000
@@ -317,6 +317,9 @@ def plot_hist_and_binned(all_trials, label, fs, window, save_folder, **histogram
         all_trials["breath"]
     )  # or use all_trials["insps_padded"] for insp only
 
+    if color_by is not None:
+        categories = sorted(all_trials.index.get_level_values(color_by).unique())
+
     for bin in range(0, len(edges) - 1):
         # get trials in bin
         lower, upper = edges[bin : bin + 2]
@@ -329,13 +332,30 @@ def plot_hist_and_binned(all_trials, label, fs, window, save_folder, **histogram
 
         x = np.arange(*window) / fs * 1000
 
-        ax.plot(
-            x,
-            breaths,
+        trace_kwargs = dict(
             linewidth=0.5,
             alpha=0.7,
         )
 
+        # plot all traces in this bin
+        if color_by is not None:
+            for i, category in enumerate(categories):
+                ii_cat = all_trials.iloc[ii_bin].index.get_level_values(color_by) == category
+
+                ax.plot(
+                    x,
+                    breaths[:, ii_cat],
+                    c=f"C{i}",
+                    **trace_kwargs
+                )
+        else:
+            ax.plot(
+                x,
+                breaths,
+                **trace_kwargs
+            )
+
+        # plot mean trace
         ax.plot(
             x,
             breaths.mean(axis=1),
@@ -365,8 +385,8 @@ all_save_folder = save_folder.joinpath("all_birds")
 os.makedirs(all_save_folder)
 
 # for all trials
-plot_hist_and_binned(
-    all_trials, "all_birds", fs, window, all_save_folder, **histogram_kwarg
+a = plot_hist_and_binned(
+    all_trials, "all_birds", fs, window, all_save_folder, color_by="birdname",**histogram_kwarg
 )
 
 # for individual birds
