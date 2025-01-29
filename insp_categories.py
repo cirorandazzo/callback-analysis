@@ -53,7 +53,7 @@ all_trials.sort_index(inplace=True)
 all_trials
 
 # %%
-# get first insp for all trials
+# get first insp + following exp for all trials
 #
 # stim-aligned & in samples
 
@@ -67,10 +67,6 @@ all_trials["ii_first_insp"] = all_trials.apply(
     return_unit="samples",
 )
 
-all_trials
-
-
-# %%
 # reject trials without insp
 #
 # these occur at end of callbacks - final trial cuts off immediately post-stim
@@ -79,6 +75,31 @@ ii_no_insps = all_trials["ii_first_insp"].isna()
 
 rejected = all_trials.loc[ii_no_insps]
 all_trials = all_trials.loc[~ii_no_insps]
+
+# get exp following inspiration
+def get_next_exp(trial, fs):
+
+    insp_offset_s = trial["ii_first_insp"][1] / fs
+
+    next_exp = get_first_breath_segment(
+        trial,
+        breath_type="exp",
+        fs=fs,
+        earliest_allowed_onset=insp_offset_s,
+        buffer_s=0,
+        return_stim_aligned=True,
+        return_unit="samples",
+    )
+
+    return next_exp
+
+
+all_trials["ii_next_exp"] = all_trials.apply(get_next_exp, axis=1, fs=fs)
+
+all_trials
+
+# %%
+# report rejected trials
 
 print("Rejected trials: no inspiration.")
 rejected
