@@ -105,82 +105,6 @@ print("Rejected trials: no inspiration.")
 rejected
 
 # %%
-# plot duration histograms
-
-hist_kwarg = dict(alpha=0.5, color="green")
-
-def plot_duration_hist(all_trials, subtitle, binwidth=10, hist_min=0,hist_max=860, **hist_kwarg):
-    all_insps = np.vstack(all_trials["ii_first_insp"]).T
-
-    durations_ms = (all_insps[1, :] - all_insps[0, :]) / fs * 1000
-
-    fig, ax = plt.subplots()
-
-    # ax.hist(durations_ms, **hist_kwarg)
-
-    hist, edges = np.histogram(
-        durations_ms,
-        bins=np.arange(hist_min, hist_max, binwidth),
-    )
-    ax.stairs(hist, edges, fill=True,**hist_kwarg)
-
-    ax.set(
-        title=f"first inspiration duration: {subtitle}",
-        xlabel="duration (ms)",
-        ylabel="count",
-        xlim=[-10,360],
-    )
-
-    return fig, ax
-
-
-# all birds merged
-plot_duration_hist(all_trials, "all birds", **hist_kwarg)
-
-# by bird
-for birdname, all_trials_bird in all_trials.groupby(level="birdname"):
-    plot_duration_hist(all_trials_bird, birdname, **hist_kwarg)
-
-
-# %%
-# plot timing histograms
-#
-#
-
-hist_kwarg = dict(bins=30, alpha=0.5)
-
-
-def plot_timing_hist(all_trials, subtitle, **hist_kwarg):
-    all_insps = np.vstack(all_trials["ii_first_insp"]).T
-
-    onsets_ms = all_insps[0, :] / fs * 1000
-    offsets_ms = all_insps[1, :] / fs * 1000
-
-    fig, ax = plt.subplots()
-
-    ax.hist(onsets_ms, label="insp onset", **hist_kwarg)
-    ax.hist(offsets_ms, label="insp offset", **hist_kwarg)
-    ax.legend()
-
-    ax.set(
-        title=f"first inspiration timing: {subtitle}",
-        xlabel="time, stim-aligned (ms)",
-        ylabel="count",
-        xlim=[-350, 900],
-    )
-
-    return fig, ax
-
-
-# all birds merged
-plot_timing_hist(all_trials, "all birds", **hist_kwarg)
-
-# by bird
-for birdname, all_trials_bird in all_trials.groupby(level="birdname"):
-    plot_timing_hist(all_trials_bird, birdname, **hist_kwarg)
-
-
-# %%
 # get window encompassing all insps
 
 buffer_fr = int(buffer_ms * fs / 1000) + 1
@@ -276,35 +200,6 @@ all_trials.loc[:, "insps_unpadded"] = all_trials.apply(
 
 all_trials
 
-# %%
-# plot all aligned traces
-
-fig, ax = plt.subplots()
-for trace in all_trials["breath"]:
-    ax.plot(np.arange(*window), trace)
-
-ax.set(
-    title="breaths",
-    xlabel="samples (stim-aligned)",
-    ylabel="amplitude",
-)
-
-plt.show()
-
-# %%
-# plot all aligned traces - insp only
-
-fig, ax = plt.subplots()
-for trace in all_trials["insps_padded"]:
-    ax.plot(np.arange(*window), trace)
-
-ax.set(
-    title="padded insps",
-    xlabel="samples (stim-aligned)",
-    ylabel="amplitude",
-)
-
-plt.show()
 
 # %%
 # putative calls
@@ -380,6 +275,115 @@ all_trials["putative_call"] = all_trials.apply(
     exp_window_fr=exp_window_fr,
     threshold=threshold,
 )
+
+
+
+# %%
+# plot all aligned traces
+
+fig, ax = plt.subplots()
+for trace in all_trials["breath"]:
+    ax.plot(np.arange(*window), trace)
+
+ax.set(
+    title="breaths",
+    xlabel="samples (stim-aligned)",
+    ylabel="amplitude",
+)
+
+plt.show()
+
+# %%
+# plot all aligned traces - insp only
+
+fig, ax = plt.subplots()
+for trace in all_trials["insps_padded"]:
+    ax.plot(np.arange(*window), trace)
+
+ax.set(
+    title="padded insps",
+    xlabel="samples (stim-aligned)",
+    ylabel="amplitude",
+)
+
+plt.show()
+
+
+
+# %%
+# plot duration histograms
+
+hist_kwarg = dict(alpha=0.5, color="green")
+
+def plot_duration_hist(all_trials, subtitle, binwidth=10, hist_min=0,hist_max=860, **hist_kwarg):
+    all_insps = np.vstack(all_trials["ii_first_insp"]).T
+
+    durations_ms = (all_insps[1, :] - all_insps[0, :]) / fs * 1000
+
+    fig, ax = plt.subplots()
+
+    # ax.hist(durations_ms, **hist_kwarg)
+
+    hist, edges = np.histogram(
+        durations_ms,
+        bins=np.arange(hist_min, hist_max, binwidth),
+    )
+    ax.stairs(hist, edges, fill=True,**hist_kwarg)
+
+    ax.set(
+        title=f"first inspiration duration: {subtitle}",
+        xlabel="duration (ms)",
+        ylabel="count",
+        xlim=[-10,360],
+    )
+
+    return fig, ax
+
+
+# all birds merged
+plot_duration_hist(all_trials, "all birds", **hist_kwarg)
+
+# by bird
+for birdname, all_trials_bird in all_trials.groupby(level="birdname"):
+    plot_duration_hist(all_trials_bird, birdname, **hist_kwarg)
+
+
+# %%
+# plot timing histograms
+#
+#
+
+hist_kwarg = dict(bins=30, alpha=0.5)
+
+
+def plot_timing_hist(all_trials, subtitle, **hist_kwarg):
+    all_insps = np.vstack(all_trials["ii_first_insp"]).T
+
+    onsets_ms = all_insps[0, :] / fs * 1000
+    offsets_ms = all_insps[1, :] / fs * 1000
+
+    fig, ax = plt.subplots()
+
+    ax.hist(onsets_ms, label="insp onset", **hist_kwarg)
+    ax.hist(offsets_ms, label="insp offset", **hist_kwarg)
+    ax.legend()
+
+    ax.set(
+        title=f"first inspiration timing: {subtitle}",
+        xlabel="time, stim-aligned (ms)",
+        ylabel="count",
+        xlim=[-350, 900],
+    )
+
+    return fig, ax
+
+
+# all birds merged
+plot_timing_hist(all_trials, "all birds", **hist_kwarg)
+
+# by bird
+for birdname, all_trials_bird in all_trials.groupby(level="birdname"):
+    plot_timing_hist(all_trials_bird, birdname, **hist_kwarg)
 
 
 # %%
