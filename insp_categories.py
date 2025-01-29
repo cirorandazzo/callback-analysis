@@ -259,8 +259,8 @@ all_trials
 # plot all aligned traces
 
 fig, ax = plt.subplots()
-for bin in all_trials["breath"]:
-    ax.plot(np.arange(*window), bin)
+for trace in all_trials["breath"]:
+    ax.plot(np.arange(*window), trace)
 
 ax.set(
     title="breaths",
@@ -269,12 +269,13 @@ ax.set(
 )
 
 plt.show()
+
 # %%
 # plot all aligned traces - insp only
 
 fig, ax = plt.subplots()
-for bin in all_trials["insps_padded"]:
-    ax.plot(np.arange(*window), bin)
+for trace in all_trials["insps_padded"]:
+    ax.plot(np.arange(*window), trace)
 
 ax.set(
     title="padded insps",
@@ -283,6 +284,82 @@ ax.set(
 )
 
 plt.show()
+
+# %%
+# putative calls
+
+exp_window_ms = 300  # window after insp offset
+threshold = 2  # times magnitude of inspiration
+
+exp_window_fr = int(exp_window_ms * fs / 1000)
+
+
+def check_call(trial, window, exp_window_fr, threshold):
+    # indices of insp in trial["breath"]
+    insp_on, insp_off = trial["ii_first_insp"] - window[0]
+
+    post_insp_window = trial["breath"][insp_off : insp_off + exp_window_fr]
+
+    putative_call = any(post_insp_window > threshold * abs(min(trial["insps_unpadded"])))
+
+    return putative_call
+
+
+# sample plot to show segments
+def plot_segments(trial, window, exp_window_fr, threshold):
+    fig, ax = plt.subplots()
+
+    insp_on, insp_off = trial["ii_first_insp"] - window[0]
+
+    ax.plot(
+        trial["breath"],
+        label="breath",
+    )
+    ax.plot(
+        np.arange(insp_on, insp_off),
+        trial["insps_unpadded"],
+        label="insp",
+    )
+
+    ii_exp = np.arange(insp_off, insp_off + exp_window_fr)
+    ax.plot(
+        ii_exp,
+        trial["breath"][ii_exp],
+        label="exp window",
+    )
+
+    ax.hlines(
+        xmin=0,
+        xmax=np.ptp(window),
+        y=threshold * abs(min(trial["insps_unpadded"])),
+        colors="k",
+        linestyles="--",
+        linewidths=0.5,
+        label="threshold",
+    )
+
+    ax.legend()
+
+    return fig, ax
+
+# putative call based on amplitude
+# 
+# previously: threshold based on 98th percentile of breath waveform per file
+# here: threshold of (2 * abs(insp_amp)) in 300ms post insp. no windowing
+# 
+# these correspond well, apparently. however, this seems more robust. will use this going forward 
+
+# to keep previous putative_call
+# all_trials.rename(columns={"putative_call": "putative_call-pct"}, inplace=True)
+
+all_trials["putative_call"] = all_trials.apply(
+    check_call,
+    axis=1,
+    window=window,
+    exp_window_fr=exp_window_fr,
+    threshold=threshold,
+)
+
 
 # %%
 # plot breath traces by insp bin
