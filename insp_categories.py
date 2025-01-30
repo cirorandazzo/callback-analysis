@@ -9,6 +9,7 @@
 #   (b) second pass: umap
 
 import glob
+from itertools import product
 import json
 import os
 import pathlib
@@ -111,7 +112,7 @@ all_trials
 # %%
 # report rejected trials
 
-print("Rejected trials: no inspiration.")
+print("Rejected trials: no inspiration, or too long.")
 rejected
 
 # %%
@@ -561,56 +562,87 @@ for birdname, all_trials_bird in all_trials.groupby(level="birdname"):
 # %%
 # make umap embedding
 
-insps_mat = np.vstack(all_trials["insps_padded"])
-
-umap_name = "embedding3"
-model = umap.UMAP(
-    n_neighbors=10,
-    min_dist=0.5,
-    metric="correlation",
-)
-
-embedding = model.fit_transform(insps_mat)
-
-
-# %%
-# plot umap
-
-all_insps = np.vstack(all_trials["ii_first_insp"]).T
-offsets_ms = all_insps[1, :] / fs * 1000
-
-fig, ax = plt.subplots()
-
-sc = ax.scatter(
-    embedding[:, 0],
-    embedding[:, 1],
-    s=4,
-    alpha=0.8,
-    c=offsets_ms,
-    cmap="viridis",
-)
-
-ax.set(
-    xlabel="UMAP1",
-    ylabel="UMAP2",
-    title=umap_name,
-)
-
-cbar = fig.colorbar(sc, label="insp offset (ms, stim-aligned)")
-
-
-# %%
-# save umap plot & embedding
-
 save_folder = pathlib.Path("./data/umap")
 
-with open(save_folder.joinpath(f"{umap_name}.pickle"), "wb") as f:
-    pickle.dump(
-        {
-            "model": model,
-            "embedding": embedding,
-        },
-        f,
+umap_params = dict(
+    insp_col_name=[
+        "insps_padded",
+        "insps_padded_call_discrete",
+        "insps_padded_right_zero",
+    ],
+    n_neighbors=[3, 5, 10, 20],
+    min_dist=[0.01, 0.1, 0.5, 1],
+    metrics=[
+        "cosine",
+        "correlation",
+        "euclidean",
+    ],
+)
+
+# make parameter combinations
+conditions = []
+for condition in product(*umap_params.values()):
+    conditions.append({k: v for k, v in zip(umap_params.keys(), condition)})
+
+
+for i, condition in enumerate(conditions):
+
+    umap_name = f"embedding{i}"
+
+    with open(save_folder.joinpath(f"log.txt"), "a") as f:
+        f.write(f"embedding{i}")
+        f.write(str(condition))
+
+
+    insp_type = condition.pop("insp_col_name")
+    insps_mat = np.vstack(all_trials[insp_type])
+
+    model = umap.UMAP(
+        n_neighbors=10,
+        min_dist=0.5,
+        metric="correlation",
     )
 
-fig.savefig(save_folder.joinpath(f"{umap_name}.jpg"))
+    embedding = model.fit_transform(insps_mat)
+
+
+    # plot umap
+
+    all_insps = np.vstack(all_trials["ii_first_insp"]).T
+    offsets_ms = all_insps[1, :] / fs * 1000
+
+    fig, ax = plt.subplots()
+
+    sc = ax.scatter(
+        embedding[:, 0],
+        embedding[:, 1],
+        s=4,
+        alpha=0.8,
+        c=offsets_ms,
+        cmap="viridis",
+    )
+
+    ax.set(
+        xlabel="UMAP1",
+        ylabel="UMAP2",
+        title=umap_name,
+    )
+
+    cbar = fig.colorbar(sc, label="insp offset (ms, stim-aligned)")
+
+
+    # save umap plot & embedding
+
+    save_folder = pathlib.Path("./data/umap")
+
+    with open(save_folder.joinpath(f"{umap_name}.pickle"), "wb") as f:
+        pickle.dump(
+            {
+                "model": model,
+                "embedding": embedding,
+            },
+            f,
+        )
+
+    fig.savefig(save_folder.joinpath(f"{umap_name}.jpg"))
+    plt.close(fig)
