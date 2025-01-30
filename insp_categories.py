@@ -57,6 +57,8 @@ all_trials
 #
 # stim-aligned & in samples
 
+max_insp_length_s = 0.5
+
 all_trials["ii_first_insp"] = all_trials.apply(
     get_first_breath_segment,
     axis=1,
@@ -75,6 +77,14 @@ ii_no_insps = all_trials["ii_first_insp"].isna()
 
 rejected = all_trials.loc[ii_no_insps]
 all_trials = all_trials.loc[~ii_no_insps]
+
+
+# reject trials with insp too long
+ii_good_duration = all_trials["ii_first_insp"].apply(lambda x: np.ptp(x) <= max_insp_length_s * fs)
+
+rejected = pd.concat([rejected, all_trials.loc[~ii_good_duration]])
+all_trials = all_trials.loc[ii_good_duration]
+
 
 # get exp following inspiration
 def get_next_exp(trial, fs):
@@ -276,6 +286,7 @@ all_trials["putative_call"] = all_trials.apply(
     threshold=threshold,
 )
 
+all_trials
 
 
 # %%
