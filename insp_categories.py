@@ -269,11 +269,11 @@ def plot_segments(trial, window, exp_window_fr, threshold):
     return fig, ax
 
 # putative call based on amplitude
-# 
+#
 # previously: threshold based on 98th percentile of breath waveform per file
 # here: threshold of (2 * abs(insp_amp)) in 300ms post insp. no windowing
-# 
-# these correspond well, apparently. however, this seems more robust. will use this going forward 
+#
+# these correspond well, apparently. however, this seems more robust. will use this going forward
 
 # to keep previous putative_call
 # all_trials.rename(columns={"putative_call": "putative_call-pct"}, inplace=True)
@@ -286,8 +286,36 @@ all_trials["putative_call"] = all_trials.apply(
     threshold=threshold,
 )
 
-all_trials
 
+# %%
+# end-pad calls with discrete call label
+
+def pad_insps(trial, pad_to, pad_value):
+
+    insp = trial["insps_unpadded"]
+    pad_length = pad_to - len(insp)
+
+    padded = np.pad(insp, [0, pad_length], mode="constant", constant_values=pad_value)
+
+    return padded
+
+all_trials["insps_padded_call_discrete"] = all_trials.apply(
+    lambda trial: pad_insps(
+        trial,
+        pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
+        pad_value=trial["putative_call"] * 1000,
+    ),
+    axis=1,
+)
+
+all_trials["insps_padded_right_zero"] = all_trials.apply(
+    lambda trial: pad_insps(
+        trial,
+        pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
+        pad_value=0,
+    ),
+    axis=1,
+)
 
 # %%
 # plot all aligned traces
@@ -320,6 +348,23 @@ ax.set(
 plt.show()
 
 
+# %%
+# plot all call-discretized traces: call vs no call trials
+
+dfs = {
+    "no call": all_trials.loc[~all_trials["putative_call"]],
+    "call": all_trials.loc[all_trials["putative_call"]],
+}
+
+fig, axs = plt.subplots(ncols=len(dfs.keys()), sharey=True)
+
+for (key, df), ax in zip(dfs.items(), axs):
+    for trace in df["insps_padded_call_discrete"]:
+        ax.plot(trace)
+    ax.set(title=key)
+
+fig.suptitle("Discretized call")
+fig.tight_layout()
 
 # %%
 # plot duration histograms
