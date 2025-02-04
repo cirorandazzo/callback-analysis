@@ -572,7 +572,7 @@ umap_params = dict(
     ],
     n_neighbors=[3, 5, 10, 20],
     min_dist=[0.01, 0.1, 0.5, 1],
-    metrics=[
+    metric=[
         "cosine",
         "correlation",
         "euclidean",
@@ -590,21 +590,17 @@ for i, condition in enumerate(conditions):
     umap_name = f"embedding{i}"
 
     with open(save_folder.joinpath(f"log.txt"), "a") as f:
-        f.write(f"embedding{i}")
-        f.write(str(condition))
+        f.write(f"- embedding{i}:\n")
 
+        for k,v in condition.items():
+            f.write(f"  - {k}: {v}\n")
 
     insp_type = condition.pop("insp_col_name")
     insps_mat = np.vstack(all_trials[insp_type])
 
-    model = umap.UMAP(
-        n_neighbors=10,
-        min_dist=0.5,
-        metric="correlation",
-    )
+    model = umap.UMAP(**condition)
 
     embedding = model.fit_transform(insps_mat)
-
 
     # plot umap
 
@@ -630,7 +626,6 @@ for i, condition in enumerate(conditions):
 
     cbar = fig.colorbar(sc, label="insp offset (ms, stim-aligned)")
 
-
     # save umap plot & embedding
 
     save_folder = pathlib.Path("./data/umap")
@@ -646,3 +641,7 @@ for i, condition in enumerate(conditions):
 
     fig.savefig(save_folder.joinpath(f"{umap_name}.jpg"))
     plt.close(fig)
+
+
+with open(save_folder.joinpath(f"all_trials.pickle"), "wb") as f:
+    pickle.dump(all_trials, f)
