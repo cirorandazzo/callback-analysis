@@ -444,6 +444,40 @@ for birdname, all_trials_bird in all_trials.groupby(level="birdname"):
 
 
 # %%
+# plot 2d hist of onset/offset
+
+bin_width_f = 0.02 * fs
+
+fig, ax = plt.subplots()
+
+edges = (  # uses same bins for onset & offset to ensure axis 
+    np.arange(
+        all_insps.ravel().min(), all_insps.ravel().max() + bin_width_f, bin_width_f
+    )
+    / fs
+    * 1000
+)
+
+hist, x_edges, y_edges, im = ax.hist2d(
+    x=all_insps[0, :] / fs * 1000,  # onsets_ms
+    y=all_insps[1, :] / fs * 1000,  # offsets_ms
+    cmap="hot",
+    bins=edges,
+)
+
+ax.axis("equal")
+plt.box(False)
+
+ax.set(
+    xlabel="onsets (ms, stim-aligned)",
+    ylabel="offsets (ms, stim-aligned)",
+    title="First inspiration timing",
+)
+
+fig.colorbar(im, ax=ax, label="Number of breaths")
+
+
+# %%
 # plot breath traces by insp bin
 
 save_folder = pathlib.Path("./data/insp_bins-offset")
