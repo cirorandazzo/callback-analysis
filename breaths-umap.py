@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 
 import umap
 
+import hdbscan
+
 # %%
 # load umap, all_trials data
 
@@ -48,7 +50,7 @@ model
 
 # %%
 
-# kwargs consistenc across
+# kwargs consistent across
 scatter_kwargs = dict(
     x=embedding[:, 0],
     y=embedding[:, 1],
@@ -170,32 +172,98 @@ label_map = {
 
 ax.legend(handles=handles, labels=[label_map[x] for x in labels])
 
-
 # %%
+# clustering
 
-bin_width_f = 0.02 * fs
+clusterer = hdbscan.HDBSCAN(
+    metric="l1",
+    min_cluster_size=60,
+    min_samples=1,
+    cluster_selection_method="leaf",
+    gen_min_span_tree=True,
+)
+
+clusterer.fit(embedding)
+
+cluster_embeddings = {
+    i_cluster: embedding[clusterer.labels_ == i_cluster]
+    for i_cluster in np.unique(clusterer.labels_)
+}
 
 fig, ax = plt.subplots()
 
-edges = (
-    np.arange(
-        all_insps.ravel().min(), all_insps.ravel().max() + bin_width_f, bin_width_f
+title = f"{embedding_name}: hdbscan clustering"
+
+cmap = plt.get_cmap("jet", len(cluster_embeddings.keys()))
+
+for i_cluster, cluster_points in cluster_embeddings.items():
+    if i_cluster == -1:
+        color = "k"
+    else:
+        color = cmap(i_cluster)
+
+    ax.scatter(
+        cluster_points[:, 0],
+        cluster_points[:, 1],
+        label=f"{i_cluster}",
+        facecolor=color,
+        s=5,
+        alpha=0.5,
     )
-    / fs
-    * 1000
-)
-
-hist, x_edges, y_edges, im = ax.hist2d(
-    x=onsets_ms, y=offsets_ms, cmap="hot", bins=edges
-)
-
-ax.axis("equal")
-plt.box(False)
 
 ax.set(
-    xlabel="onsets (ms, stim-aligned)",
-    ylabel="offsets (ms, stim-aligned)",
-    title="First inspiration timing",
+    **set_kwargs,
+    title=title,
 )
 
-fig.colorbar(im, ax=ax, label="Number of breaths")
+ax.legend()
+
+# %%
+
+trace_type = "insps_padded"
+
+all_traces = np.vstack(all_trials[trace_type])
+
+cluster_traces = {
+    i_cluster: all_traces[
+        (clusterer.labels_ == i_cluster)
+        & ~np.array(all_trials["putative_call"]).astype(bool)
+    ]
+    for i_cluster in np.unique(clusterer.labels_)
+}
+
+# convert frames -> ms directly (eg, using insp onset-aligned)
+# x = np.arange(all_traces.shape[1]) / fs * 1000
+
+# need window for x if using "insps_padded"
+buffer_ms = 500
+buffer_fr = int(buffer_ms * fs / 1000) + 1
+all_insps = np.vstack(all_trials["ii_first_insp"]).T
+
+window = (all_insps.min() - buffer_fr, all_insps.max() + buffer_fr)
+x = np.arange(*window) / fs * 1000
+
+for i_cluster, traces in cluster_traces.items():
+    fig, ax = plt.subplots()
+
+    if i_cluster == -1:
+        title_color = "k"
+    else:
+        title_color = cmap(i_cluster)
+
+    # plot
+    ax.plot(x, traces.T, color="k", alpha=0.7, linewidth=0.5)
+
+    # plot mean
+    ax.plot(x, traces.T.mean(axis=1), color="r", linewidth=1)
+
+    ax.set_title(
+        f"cluster {i_cluster} traces w/ call (n={traces.shape[0]})", color=title_color
+    )
+
+    ax.set(
+        xlabel="time (ms, stim-aligned)",
+        ylabel="amplitude",
+        xlim=[-400, 800],
+        ylim=[-5050, 100],
+    )
