@@ -35,6 +35,8 @@ from utils.file import parse_birdname
 fs = 44100
 buffer_ms = 500
 
+breath_field = "breath_norm"  # will be used for plots and such.
+
 # %%
 # load `all_trials` dataframe
 
@@ -154,7 +156,12 @@ def get_breath_for_trial(trial, breath, window, fs, centered=False):
 
 for wav_filename, file_trials in all_trials.groupby("wav_filename"):
 
+    zero_point = file_trials["breath_zero_point"].unique()
+    assert len(zero_point) == 1
+    zero_point = zero_point[0]
+
     breath = AudioObject.from_wav(wav_filename, channels=1, b=b, a=a).audio_filt
+    breath -= zero_point
 
     all_trials.loc[file_trials.index, "breath"] = file_trials.apply(
         get_breath_for_trial,
@@ -162,9 +169,15 @@ for wav_filename, file_trials in all_trials.groupby("wav_filename"):
         breath=breath,
         window=window,
         fs=fs,
-        centered=True,  # NOTE: this was initially false.
+        centered=False
     )
-    # TODO: normalize between file zero point & min?
+    
+    # breath_norm: map [biggest_insp, zero_point] --> [-1, 0]
+    insp_magnitude = np.abs(breath.min())
+
+    all_trials.loc[file_trials.index, "breath_norm"] = all_trials.loc[file_trials.index, "breath"].apply(
+        lambda x: x / insp_magnitude
+    )
 
 all_trials
 
@@ -172,10 +185,9 @@ all_trials
 # %%
 # get insp only trace (zero-padded to window size)
 
+def get_insp_trace(trial, window, pad_value=0, pad=True, breath_field="breath"):
 
-def get_insp_trace(trial, window, pad_value=0, pad=True):
-
-    breath = trial["breath"].copy()
+    breath = trial[breath_field].copy()
     insp_on, insp_off = trial["ii_first_insp"]
 
     # CHECKS
@@ -200,6 +212,7 @@ all_trials.loc[:, "insps_padded"] = all_trials.apply(
     get_insp_trace,
     axis=1,
     window=window,
+    breath_field=breath_field,
 )
 
 all_trials.loc[:, "insps_unpadded"] = all_trials.apply(
@@ -207,6 +220,18 @@ all_trials.loc[:, "insps_unpadded"] = all_trials.apply(
     axis=1,
     window=window,
     pad=False,
+    breath_field=breath_field,
+)
+
+# interpolate to stretch all insps to same length
+max_length = max(all_trials["insps_unpadded"].apply(len))
+
+all_trials.loc[:, "insps_interpolated"] = all_trials["insps_unpadded"].apply(
+    lambda trial: np.interp(
+        np.linspace(0, len(trial), max_length),
+        np.arange(len(trial)),
+        trial,
+    )
 )
 
 all_trials
@@ -225,22 +250,24 @@ def check_call(trial, window, exp_window_fr, threshold):
     # indices of insp in trial["breath"]
     insp_on, insp_off = trial["ii_first_insp"] - window[0]
 
+    insp_window = trial["breath"][insp_on : insp_off]
     post_insp_window = trial["breath"][insp_off : insp_off + exp_window_fr]
 
-    putative_call = any(post_insp_window > threshold * abs(min(trial["insps_unpadded"])))
+
+    putative_call = any(post_insp_window > threshold * np.abs(insp_window.min()))
 
     return putative_call
 
 
 # sample plot to show segments
-def plot_segments(trial, window, exp_window_fr, threshold):
+def plot_segments(trial, window, exp_window_fr, threshold, breath_field="breath"):
     fig, ax = plt.subplots()
 
     insp_on, insp_off = trial["ii_first_insp"] - window[0]
 
     ax.plot(
-        trial["breath"],
-        label="breath",
+        trial[breath_field],
+        label=breath_field,
     )
     ax.plot(
         np.arange(insp_on, insp_off),
@@ -251,7 +278,7 @@ def plot_segments(trial, window, exp_window_fr, threshold):
     ii_exp = np.arange(insp_off, insp_off + exp_window_fr)
     ax.plot(
         ii_exp,
-        trial["breath"][ii_exp],
+        trial[breath_field][ii_exp],
         label="exp window",
     )
 
@@ -322,11 +349,11 @@ all_trials["insps_padded_right_zero"] = all_trials.apply(
 # plot all aligned traces
 
 fig, ax = plt.subplots()
-for trace in all_trials["breath"]:
+for trace in all_trials[breath_field]:
     ax.plot(np.arange(*window), trace)
 
 ax.set(
-    title="breaths",
+    title=breath_field,
     xlabel="samples (stim-aligned)",
     ylabel="amplitude",
 )
@@ -485,7 +512,7 @@ save_folder = pathlib.Path("./data/insp_bins-offset")
 histogram_kwarg = dict(bins=40, range=(0, 840))
 
 
-def plot_hist_and_binned(all_trials, label, fs, window, save_folder, color_by=None, **histogram_kwarg):
+def plot_hist_and_binned(all_trials, label, fs, window, save_folder, breath_field="breath", color_by=None, **histogram_kwarg):
 
     all_insps = np.vstack(all_trials["ii_first_insp"]).T
     offsets_ms = all_insps[1, :] / fs * 1000
@@ -507,7 +534,7 @@ def plot_hist_and_binned(all_trials, label, fs, window, save_folder, color_by=No
 
     # plot breath traces by bin
     insps_mat = np.vstack(
-        all_trials["breath"]
+        all_trials[breath_field]
     )  # or use all_trials["insps_padded"] for insp only
 
     if color_by is not None:
@@ -579,7 +606,7 @@ os.makedirs(all_save_folder)
 
 # for all trials
 a = plot_hist_and_binned(
-    all_trials, "all_birds", fs, window, all_save_folder, color_by="birdname",**histogram_kwarg
+    all_trials, "all_birds", fs, window, all_save_folder, color_by="birdname", breath_field=breath_field, **histogram_kwarg
 )
 
 # for individual birds
@@ -600,16 +627,16 @@ save_folder = pathlib.Path("./data/umap")
 
 umap_params = dict(
     insp_col_name=[
-        "insps_padded",
-        "insps_padded_call_discrete",
+        "insps_interpolated",
         "insps_padded_right_zero",
     ],
-    n_neighbors=[3, 5, 10, 20],
-    min_dist=[0.01, 0.1, 0.5, 1],
+    n_neighbors=[2, 5, 10, 20, 50, 70, 100],
+    min_dist=[0, 0.001, 0.01, 0.1, 1, 10],
     metric=[
         "cosine",
         "correlation",
         "euclidean",
+        "chebyshev"
     ],
 )
 
@@ -618,10 +645,22 @@ conditions = []
 for condition in product(*umap_params.values()):
     conditions.append({k: v for k, v in zip(umap_params.keys(), condition)})
 
+errors = {}
 
+# save all_trials
+with open(save_folder.joinpath(f"all_trials.pickle"), "wb") as f:
+    pickle.dump(all_trials, f)
+
+# run gridsearch
 for i, condition in enumerate(conditions):
 
     umap_name = f"embedding{i}"
+
+    if os.path.exists(save_folder.joinpath(f"{umap_name}.pickle")):
+        print(f"#{i} exists! Skipping...")
+        continue
+
+    print(f"Embedding {i} / {len(conditions)}: {condition}")
 
     with open(save_folder.joinpath(f"log.txt"), "a") as f:
         f.write(f"- embedding{i}:\n")
@@ -632,9 +671,13 @@ for i, condition in enumerate(conditions):
     insp_type = condition.pop("insp_col_name")
     insps_mat = np.vstack(all_trials[insp_type])
 
-    model = umap.UMAP(**condition)
-
-    embedding = model.fit_transform(insps_mat)
+    try:
+        model = umap.UMAP(**condition)
+        embedding = model.fit_transform(insps_mat)
+    except Exception as e:
+        errors[i] = e
+        print(f"Error on #{i}! Skipping...")
+        continue
 
     # plot umap
 
@@ -676,6 +719,3 @@ for i, condition in enumerate(conditions):
     fig.savefig(save_folder.joinpath(f"{umap_name}.jpg"))
     plt.close(fig)
 
-
-with open(save_folder.joinpath(f"all_trials.pickle"), "wb") as f:
-    pickle.dump(all_trials, f)
