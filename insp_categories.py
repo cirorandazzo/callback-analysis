@@ -241,38 +241,57 @@ all_trials
 # putative calls
 
 exp_window_ms = 300  # window after insp offset
-threshold = 2  # times magnitude of inspiration
+threshold = 3  # times magnitude of inspiration
 
 exp_window_fr = int(exp_window_ms * fs / 1000)
 
 
-def check_call(trial, window, exp_window_fr, threshold):
+def check_call(trial, window, exp_window_fr, threshold, return_magnitudes=False, breath_field="breath"):
     # indices of insp in trial["breath"]
     insp_on, insp_off = trial["ii_first_insp"] - window[0]
 
-    insp_window = trial["breath"][insp_on : insp_off]
-    post_insp_window = trial["breath"][insp_off : insp_off + exp_window_fr]
+    insp_window = trial["breath_norm"][insp_on : insp_off]
+    post_insp_window = trial["breath_norm"][insp_off : insp_off + exp_window_fr]
 
+    if return_magnitudes:
+        return (np.abs(insp_window.min()), post_insp_window.max())
 
-    putative_call = any(post_insp_window > threshold * np.abs(insp_window.min()))
-
-    return putative_call
+    else:
+        putative_call = any(post_insp_window > threshold * np.abs(insp_window.min()))
+        return putative_call
 
 
 # sample plot to show segments
-def plot_segments(trial, window, exp_window_fr, threshold, breath_field="breath"):
-    fig, ax = plt.subplots()
+def plot_segments(
+    trial,
+    window,
+    exp_window_fr,
+    threshold,
+    breath_field="breath",
+    ax=None,
+    legend=True,
+    **plot_kwargs,
+):
+
+    if ax is None:
+        fig, ax = plt.subplots()
 
     insp_on, insp_off = trial["ii_first_insp"] - window[0]
+
+    insp = trial[breath_field][insp_on : insp_off]
 
     ax.plot(
         trial[breath_field],
         label=breath_field,
+        c="k",
+        **plot_kwargs,
     )
     ax.plot(
         np.arange(insp_on, insp_off),
-        trial["insps_unpadded"],
+        insp,
         label="insp",
+        c="b",
+        **plot_kwargs,
     )
 
     ii_exp = np.arange(insp_off, insp_off + exp_window_fr)
@@ -280,21 +299,26 @@ def plot_segments(trial, window, exp_window_fr, threshold, breath_field="breath"
         ii_exp,
         trial[breath_field][ii_exp],
         label="exp window",
+        c="g",
+        **plot_kwargs,
     )
 
-    ax.hlines(
-        xmin=0,
-        xmax=np.ptp(window),
-        y=threshold * abs(min(trial["insps_unpadded"])),
-        colors="k",
-        linestyles="--",
-        linewidths=0.5,
-        label="threshold",
-    )
+    if threshold is not None:
+        ax.hlines(
+            xmin=0,
+            xmax=np.ptp(window),
+            y=threshold * abs(insp.min()),
+            colors="k",
+            linestyles="--",
+            linewidths=0.5,
+            label="threshold",
+        )
 
-    ax.legend()
+    if legend:
+        ax.legend()
 
-    return fig, ax
+    return ax
+
 
 # putative call based on amplitude
 #
@@ -314,6 +338,77 @@ all_trials["putative_call"] = all_trials.apply(
     threshold=threshold,
 )
 
+# %%
+# magnitude distr for putative call
+
+magnitudes = all_trials.apply(
+    check_call,
+    axis=1,
+    window=window,
+    exp_window_fr=exp_window_fr,
+    threshold=threshold,
+    return_magnitudes=True,
+    breath_field="breath_norm",
+)
+
+magnitudes = pd.DataFrame(
+    [a for a in magnitudes.values],
+    columns=["mag_insp", "mag_exp"],
+    index=all_trials.index,
+)
+
+fig, ax = plt.subplots()
+
+h, xedge, yedge, im = ax.hist2d(magnitudes["mag_insp"], magnitudes["mag_exp"], bins=50, cmap="cividis")
+fig.colorbar(im, ax=ax, label="count")
+
+ax.set(
+    xlabel="insp magn",
+    ylabel=f"exp magn ({exp_window_ms}ms post)",
+)
+
+insp_max = magnitudes["mag_insp"].max()
+
+for t in [2, 3, 4]:
+    ax.plot([0, insp_max], [0, t * insp_max], label=f"threshold ({t}x)")
+
+ax.legend(loc="upper right")
+
+plt.show()
+
+# %%
+# look at traces for a range of exp magnitudes
+# 
+# amplitude in exp_window_ms after first inspiration
+
+exp_amps_to_plot = [1,2]
+ii_exp_range = (magnitudes["mag_exp"] >= exp_amps_to_plot[0]) & (
+    magnitudes["mag_exp"] <= exp_amps_to_plot[1]
+)
+
+fig, ax = plt.subplots()
+all_trials.loc[ii_exp_range].apply(
+    plot_segments,
+    axis=1,
+    window=window,
+    exp_window_fr=exp_window_fr,
+    breath_field="breath_norm",
+    ax=ax,
+    # suppress these bits
+    threshold=None,
+    legend=False,
+    linewidth=0.5,
+)
+
+ax.axvline(x=abs(window[0]), c="r", linestyle="--", label="stim")
+
+ax.set(
+    title=f"putative_calls bins: exp amplitude {exp_amps_to_plot} (n={sum(ii_exp_range)})",
+    xlabel="samples",
+    ylabel="amplitude",
+)
+
+plt.show()
 
 # %%
 # end-pad calls with discrete call label
@@ -718,4 +813,3 @@ for i, condition in enumerate(conditions):
 
     fig.savefig(save_folder.joinpath(f"{umap_name}.jpg"))
     plt.close(fig)
-
