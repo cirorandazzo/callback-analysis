@@ -185,43 +185,63 @@ all_trials
 # %%
 # get insp only trace (zero-padded to window size)
 
-def get_insp_trace(trial, window, pad_value=0, pad=True, breath_field="breath"):
+def get_trace(trial, window, pad_value=0, pad=True, breath_field="breath", which="first_insp"):
 
     breath = trial[breath_field].copy()
-    insp_on, insp_off = trial["ii_first_insp"]
+
+    if which == "first_insp":
+        on, off = trial["ii_first_insp"]
+    elif which == "next_exp":
+        on, off = trial["ii_next_exp"]
+    elif which == "first_cycle":
+        on = trial["ii_first_insp"][0]
+        off = trial["ii_next_exp"][1]
+    else:
+        raise KeyError(f"Unknown mode: {which}")
 
     # CHECKS
-    pre_insp = insp_on - window[0]
-    assert pre_insp > 0, f"{window[0]} | {insp_on}"
+    i_pre = on - window[0]
+    assert i_pre > 0, f"{window[0]} | {on}"
 
-    post_insp = insp_off - window[1]
-    assert post_insp < 0, f"{window[1]} | {insp_off}"
+    i_post = off - window[1]
+    assert i_post < 0, f"{window[1]} | {off}"
 
     # DO PADDING
     if pad:
-        breath[:pre_insp] = pad_value
-        breath[post_insp:] = pad_value
+        breath[:i_pre] = pad_value
+        breath[i_post:] = pad_value
     else:
-        breath = breath[pre_insp:post_insp]
+        breath = breath[i_pre:i_post]
 
 
     return breath
 
 
 all_trials.loc[:, "insps_padded"] = all_trials.apply(
-    get_insp_trace,
+    get_trace,
     axis=1,
     window=window,
     breath_field=breath_field,
 )
 
 all_trials.loc[:, "insps_unpadded"] = all_trials.apply(
-    get_insp_trace,
+    get_trace,
     axis=1,
     window=window,
     pad=False,
     breath_field=breath_field,
 )
+
+# first insp and following exp, padded to window.
+all_trials["breath_first_cycle"] = all_trials.apply(
+    get_trace,
+    axis=1,
+    which="first_cycle",
+    pad=True,
+    window=window,
+    breath_field=breath_field,
+)
+
 
 # interpolate to stretch all insps to same length
 max_length = max(all_trials["insps_unpadded"].apply(len))
