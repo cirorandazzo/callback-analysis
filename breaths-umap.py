@@ -137,6 +137,28 @@ ax.set(
 cbar = fig.colorbar(sc, label="insp onset (ms, stim-aligned)")
 
 # %%
+# INSP DURATION
+
+fig, ax = plt.subplots()
+
+title = f"{embedding_name}: insp DURATION"
+
+duration_ms = (all_insps[1, :] - all_insps[0, :]) / fs * 1000
+
+sc = ax.scatter(
+    **scatter_kwargs,
+    c=duration_ms,
+    cmap="cool",
+)
+
+ax.set(
+    **set_kwargs,
+    title=title,
+)
+
+cbar = fig.colorbar(sc, label="insp duration (ms)")
+
+# %%
 # BY BIRD
 
 fig, ax = plt.subplots()
@@ -282,3 +304,17 @@ for i_cluster, traces in cluster_traces.items():
     )
 
     ax.set(**cluster_set_kwargs)
+
+# %%
+# 3d with call duration
+
+embedding_plus = np.vstack([embedding.T, duration_ms])
+
+x,y,z = np.split(embedding_plus, 3, axis=0)
+
+fig = plt.figure()
+ax = fig.add_subplot(projection='3d')
+
+ax.scatter(x, y, z)
+
+ax.set(xlabel="UMAP1", ylabel="UMAP2", zlabel="insp duration (ms)")
