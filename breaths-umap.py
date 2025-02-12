@@ -366,12 +366,12 @@ for i_cluster, traces in cluster_data.items():
 
 embedding_plus = np.vstack([embedding.T, duration_ms])
 
-x, y, z = np.split(embedding_plus, 3, axis=0)
+x, height, z = np.split(embedding_plus, 3, axis=0)
 
 fig = plt.figure()
 ax = fig.add_subplot(projection="3d")
 
-ax.scatter(x, y, z)
+ax.scatter(x, height, z)
 
 ax.set(xlabel="UMAP1", ylabel="UMAP2", zlabel="insp duration (ms)")
 
@@ -379,25 +379,35 @@ ax.set(xlabel="UMAP1", ylabel="UMAP2", zlabel="insp duration (ms)")
 # %%
 # VIOLIN PLOT BY CLUSTER
 
-data = duration_ms
-set_kwargs = dict(
-    ylabel="insp duration (ms)",
-    title="insp duration",
-    xlabel="cluster",
-)
+# data = duration_ms
+# set_kwargs = dict(
+#     ylabel="insp duration (ms)",
+#     title="insp duration",
+# )
 
 # data = onsets_ms
 # set_kwargs = dict(
 #     title="insp onset (stim-aligned)",
 #     ylabel="insp onset (ms)",
-#     xlabel="cluster",
 # )
 
-# data = offsets_ms
+data = offsets_ms
+set_kwargs = dict(
+    title="insp offset (stim-aligned)",
+    ylabel="insp offset (ms)",
+    ylim=[-20, 510],
+)
+
+# data = -1 * magnitudes["mag_insp"]  # note: load from insp_categories.py
 # set_kwargs = dict(
-#     title="insp offset (stim-aligned)",
-#     ylabel="insp offset (ms)",
-#     xlabel="cluster",
+#     title="insp magnitude",
+#     ylabel="insp magnitude (normalized)",
+# )
+
+# data = magnitudes["mag_exp"]  # note: load from insp_categories.py
+# set_kwargs = dict(
+#     title="exp magnitude (300ms post-insp)",
+#     ylabel="exp magnitude (normalized)",
 # )
 
 cluster_data = {
@@ -413,4 +423,27 @@ fig, ax = plt.subplots()
 ax.violinplot(data, showextrema=False)
 ax.set_xticks(ticks=range(1, 1 + len(labels)), labels=labels)
 
-ax.set(**set_kwargs)
+ax.set(xlabel="cluster", **set_kwargs)
+
+
+# %%
+# PUTATIVE CALL PERCENTAGE
+
+cluster_data = {
+    i_cluster: sum(all_trials["putative_call"] & (clusterer.labels_ == i_cluster))
+    / sum((clusterer.labels_ == i_cluster))
+    for i_cluster in np.unique(clusterer.labels_)
+}
+
+fig, ax = plt.subplots()
+
+clusters, heights = cluster_data.keys(), cluster_data.values()
+
+ax.bar(clusters, heights)
+ax.set_xticks(list(clusters))
+
+ax.set(
+    xlabel="cluster",
+    ylabel="% of trials with call",
+    title="putative call pct",
+)

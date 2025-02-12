@@ -389,8 +389,13 @@ ax.set(
 
 insp_max = magnitudes["mag_insp"].max()
 
+# insp scaled thresholds
 for t in [2, 3, 4]:
     ax.plot([0, insp_max], [0, t * insp_max], label=f"threshold ({t}x)")
+
+# const threshold
+y = 1.1
+ax.axhline(y=y, label=f"threshold (const={y})", c="r", linewidth=0.5, linestyle="--")
 
 ax.legend(loc="upper right")
 
