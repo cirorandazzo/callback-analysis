@@ -349,11 +349,11 @@ for i_cluster, traces in cluster_data.items():
     ax.plot(x, traces.T.mean(axis=1), color="r", linewidth=1)
 
     # title n
-    if label=="all":
+    if label == "all":
         n = sum(clusterer.labels_ == i_cluster)
     else:
-        n=f"{traces.shape[0]}/{sum(clusterer.labels_ == i_cluster)}"
-        
+        n = f"{traces.shape[0]}/{sum(clusterer.labels_ == i_cluster)}"
+
     ax.set_title(
         f"cluster {i_cluster} traces {label} (n={n})",
         color=title_color,
@@ -366,11 +366,51 @@ for i_cluster, traces in cluster_data.items():
 
 embedding_plus = np.vstack([embedding.T, duration_ms])
 
-x,y,z = np.split(embedding_plus, 3, axis=0)
+x, y, z = np.split(embedding_plus, 3, axis=0)
 
 fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
+ax = fig.add_subplot(projection="3d")
 
 ax.scatter(x, y, z)
 
 ax.set(xlabel="UMAP1", ylabel="UMAP2", zlabel="insp duration (ms)")
+
+
+# %%
+# VIOLIN PLOT BY CLUSTER
+
+data = duration_ms
+set_kwargs = dict(
+    ylabel="insp duration (ms)",
+    title="insp duration",
+    xlabel="cluster",
+)
+
+# data = onsets_ms
+# set_kwargs = dict(
+#     title="insp onset (stim-aligned)",
+#     ylabel="insp onset (ms)",
+#     xlabel="cluster",
+# )
+
+# data = offsets_ms
+# set_kwargs = dict(
+#     title="insp offset (stim-aligned)",
+#     ylabel="insp offset (ms)",
+#     xlabel="cluster",
+# )
+
+cluster_data = {
+    i_cluster: data[(clusterer.labels_ == i_cluster)]
+    for i_cluster in np.unique(clusterer.labels_)
+}
+
+labels, data = cluster_data.keys(), cluster_data.values()
+
+
+fig, ax = plt.subplots()
+
+ax.violinplot(data, showextrema=False)
+ax.set_xticks(ticks=range(1, 1 + len(labels)), labels=labels)
+
+ax.set(**set_kwargs)
