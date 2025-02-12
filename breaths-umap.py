@@ -249,35 +249,81 @@ cluster_set_kwargs = dict(
     ylim=[-1.05, 0.05],
 )
 
-trace_type = "insps_interpolated"
+# =========PICK TRACE TYPE=========#
+# any column in all_trials
+
+# trace_type = "insps_interpolated"
 # trace_type = "insps_padded_right_zero"
+# trace_type = "breath_first_cycle"
+# trace_type = "breath_first_cycle_unpadded"
+trace_type = "insps_unpadded"
 
-all_traces = np.vstack(all_trials[trace_type])
 
-label = "call"
-cluster_traces = {
-    i_cluster: all_traces[
-        (clusterer.labels_ == i_cluster)
-        & np.array(all_trials["putative_call"]).astype(bool)
-    ]
+# =========STACK TRACES=========#
+
+# use traces as-is (requires same length)
+# traces = all_trials[trace_type]
+
+# pad at end (keep alignment)
+max_len = max(all_trials[trace_type].apply(len))
+traces = all_trials[trace_type].apply(lambda x: np.pad(x, [0, max_len - len(x)]))
+
+# align to insp offset - pad at beginning & end
+# max_len_insp = max(all_trials[trace_type].apply(len))
+# traces = all_trials.apply(
+#     lambda trial: np.pad(
+#         trial[trace_type], [max_len_insp - len(trial["insps_unpadded"]), 0]
+#     ),
+#     axis=1,
+# )
+# max_len = max(traces.apply(len))
+# traces = traces.apply(lambda x: np.pad(x, [0, max_len - len(x)]))
+
+# stack all traces in a numpy array
+all_traces = np.vstack(traces)
+
+
+# =========PLOT SUBSET=========#
+
+label = "all"
+cluster_data = {
+    i_cluster: all_traces[(clusterer.labels_ == i_cluster)]
     for i_cluster in np.unique(clusterer.labels_)
 }
 
-# label = "all"
+# label = "call"
 # cluster_traces = {
-#     i_cluster: all_traces[(clusterer.labels_ == i_cluster)]
+#     i_cluster: all_traces[
+#         (clusterer.labels_ == i_cluster)
+#         & np.array(all_trials["putative_call"]).astype(bool)
+#     ]
 #     for i_cluster in np.unique(clusterer.labels_)
 # }
 
-# insp: interpolated x
+# label = "no call"
+# cluster_traces = {
+#     i_cluster: all_traces[
+#         (clusterer.labels_ == i_cluster)
+#         & ~np.array(all_trials["putative_call"]).astype(bool)
+#     ]
+#     for i_cluster in np.unique(clusterer.labels_)
+# }
+
+# =========GET X=========#
+
+# insp_interpolated x: [0, 1]
 x = np.linspace(0, 1, all_traces.shape[1])
 cluster_set_kwargs["xlabel"] = "normalized inspiration duration"
 
-# convert frames -> ms directly (eg, using insp onset-aligned)
+# insp offset aligned (ms)
+# x = (np.arange(max_len) - max_len_insp) / fs * 1000
+# cluster_set_kwargs["xlabel"] = "time (ms, insp offset-aligned)"
+
+# onset aligned (ms)
 # x = np.arange(all_traces.shape[1]) / fs * 1000
 # cluster_set_kwargs["xlabel"] = "time (ms, insp onset aligned)"
 
-# # need window for x if using "insps_padded"
+# stim-aligned (ms): requires "window" var from insp_categories
 # buffer_ms = 500
 # buffer_fr = int(buffer_ms * fs / 1000) + 1
 # all_insps = np.vstack(all_trials["ii_first_insp"]).T
@@ -285,7 +331,10 @@ cluster_set_kwargs["xlabel"] = "normalized inspiration duration"
 # x = np.arange(*window) / fs * 1000
 # cluster_set_kwargs["xlabel"] = "time (ms, stim-aligned)"
 
-for i_cluster, traces in cluster_traces.items():
+
+# =========PLOT=========#
+
+for i_cluster, traces in cluster_data.items():
     fig, ax = plt.subplots()
 
     if i_cluster == -1:
@@ -293,14 +342,21 @@ for i_cluster, traces in cluster_traces.items():
     else:
         title_color = cmap(i_cluster)
 
-    # plot
+    # plot trials
     ax.plot(x, traces.T, color="k", alpha=0.7, linewidth=0.5)
 
     # plot mean
     ax.plot(x, traces.T.mean(axis=1), color="r", linewidth=1)
 
+    # title n
+    if label=="all":
+        n = sum(clusterer.labels_ == i_cluster)
+    else:
+        n=f"{traces.shape[0]}/{sum(clusterer.labels_ == i_cluster)}"
+        
     ax.set_title(
-        f"cluster {i_cluster} traces {label} (n={traces.shape[0]})", color=title_color
+        f"cluster {i_cluster} traces {label} (n={n})",
+        color=title_color,
     )
 
     ax.set(**cluster_set_kwargs)
