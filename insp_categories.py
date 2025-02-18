@@ -258,26 +258,25 @@ all_trials
 
 
 # %%
-# putative calls
+# redefine putative calls
 
-exp_window_ms = 300  # window after insp offset
-threshold = 3  # times magnitude of inspiration
-
-exp_window_fr = int(exp_window_ms * fs / 1000)
+threshold = 1.1  # absolute. most useful for normalized trace
 
 
-def check_call(trial, window, exp_window_fr, threshold, return_magnitudes=False, breath_field="breath"):
-    # indices of insp in trial["breath"]
-    insp_on, insp_off = trial["ii_first_insp"] - window[0]
+def check_call(trial, window, threshold, return_magnitudes=False, breath_field="breath"):
+    # indices of exp in trial["breath"]
+    exp_on, exp_off = trial["ii_next_exp"] - window[0]
+    exp_window = trial[breath_field][exp_on : exp_off]
 
-    insp_window = trial["breath_norm"][insp_on : insp_off]
-    post_insp_window = trial["breath_norm"][insp_off : insp_off + exp_window_fr]
+    if return_magnitudes: 
+        insp_on, insp_off = trial["ii_first_insp"] - window[0]
+        insp_window = trial[breath_field][insp_on : insp_off]
 
-    if return_magnitudes:
-        return (np.abs(insp_window.min()), post_insp_window.max())
+        return (np.abs(insp_window.min()), exp_window.max())
 
     else:
-        putative_call = any(post_insp_window > threshold * np.abs(insp_window.min()))
+        putative_call = exp_window.max() >= threshold
+
         return putative_call
 
 
@@ -292,6 +291,10 @@ def plot_segments(
     legend=True,
     **plot_kwargs,
 ):
+
+    import warnings
+
+    warnings.warn("This no longer shows the same algorithm that check_call uses!")
 
     if ax is None:
         fig, ax = plt.subplots()
@@ -354,8 +357,8 @@ all_trials["putative_call"] = all_trials.apply(
     check_call,
     axis=1,
     window=window,
-    exp_window_fr=exp_window_fr,
     threshold=threshold,
+    breath_field="breath_norm",
 )
 
 # %%
@@ -365,7 +368,6 @@ magnitudes = all_trials.apply(
     check_call,
     axis=1,
     window=window,
-    exp_window_fr=exp_window_fr,
     threshold=threshold,
     return_magnitudes=True,
     breath_field="breath_norm",
@@ -384,7 +386,7 @@ fig.colorbar(im, ax=ax, label="count")
 
 ax.set(
     xlabel="insp magn",
-    ylabel=f"exp magn ({exp_window_ms}ms post)",
+    ylabel=f"magn, next exp",
 )
 
 insp_max = magnitudes["mag_insp"].max()
@@ -406,6 +408,7 @@ plt.show()
 # 
 # amplitude in exp_window_ms after first inspiration
 
+exp_window_fr = (300 / 1000) * fs
 exp_amps_to_plot = [1,2]
 ii_exp_range = (magnitudes["mag_exp"] >= exp_amps_to_plot[0]) & (
     magnitudes["mag_exp"] <= exp_amps_to_plot[1]
@@ -436,7 +439,7 @@ ax.set(
 plt.show()
 
 # %%
-# end-pad calls with discrete call label
+# end-pad calls
 
 def pad_insps(trial, pad_to, pad_value):
 
@@ -451,7 +454,7 @@ all_trials["insps_padded_call_discrete"] = all_trials.apply(
     lambda trial: pad_insps(
         trial,
         pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
-        pad_value=trial["putative_call"] * 1000,
+        pad_value=trial["putative_call"],
     ),
     axis=1,
 )
