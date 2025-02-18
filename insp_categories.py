@@ -7,6 +7,8 @@
 # (2) categories
 #   (a) first pass: binned averages
 #   (b) second pass: umap
+#
+# Note: everything after cell "end-pad calls" and before cell "make umap embeddings" makes plots - you can skip these if you just want new embeddings.
 
 import glob
 from itertools import product
@@ -263,7 +265,7 @@ all_trials
 threshold = 1.1  # absolute. most useful for normalized trace
 
 
-def check_call(trial, window, threshold, return_magnitudes=False, breath_field="breath"):
+def check_call(trial, window, threshold, return_magnitudes=False, breath_field="breath_norm"):
     # indices of exp in trial["breath"]
     exp_on, exp_off = trial["ii_next_exp"] - window[0]
     exp_window = trial[breath_field][exp_on : exp_off]
@@ -404,6 +406,36 @@ ax.legend(loc="upper right")
 plt.show()
 
 # %%
+# end-pad calls
+
+def pad_insps(trial, pad_to, pad_value):
+
+    insp = trial["insps_unpadded"]
+    pad_length = pad_to - len(insp)
+
+    padded = np.pad(insp, [0, pad_length], mode="constant", constant_values=pad_value)
+
+    return padded
+
+all_trials["insps_padded_call_discrete"] = all_trials.apply(
+    lambda trial: pad_insps(
+        trial,
+        pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
+        pad_value=trial["putative_call"],
+    ),
+    axis=1,
+)
+
+all_trials["insps_padded_right_zero"] = all_trials.apply(
+    lambda trial: pad_insps(
+        trial,
+        pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
+        pad_value=0,
+    ),
+    axis=1,
+)
+
+# %%
 # look at traces for a range of exp magnitudes
 # 
 # amplitude in exp_window_ms after first inspiration
@@ -437,36 +469,6 @@ ax.set(
 )
 
 plt.show()
-
-# %%
-# end-pad calls
-
-def pad_insps(trial, pad_to, pad_value):
-
-    insp = trial["insps_unpadded"]
-    pad_length = pad_to - len(insp)
-
-    padded = np.pad(insp, [0, pad_length], mode="constant", constant_values=pad_value)
-
-    return padded
-
-all_trials["insps_padded_call_discrete"] = all_trials.apply(
-    lambda trial: pad_insps(
-        trial,
-        pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
-        pad_value=trial["putative_call"],
-    ),
-    axis=1,
-)
-
-all_trials["insps_padded_right_zero"] = all_trials.apply(
-    lambda trial: pad_insps(
-        trial,
-        pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
-        pad_value=0,
-    ),
-    axis=1,
-)
 
 # %%
 # plot all aligned traces
