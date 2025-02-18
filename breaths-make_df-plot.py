@@ -56,11 +56,27 @@ for i, f in enumerate(files):
     print(f"{i}. {os.path.split(f)[1]}")
 
 # %%
+
+
 # construct trial-by-trial df across all files
 all_trials = []
+all_breaths = []
 
 fs = 44100
 b, a = butter(N=2, Wn=50, btype="low", fs=fs)
+
+def check_call(trial, breath_norm, threshold, fs):
+    """
+    pass in a row of `stim_trials` to check whether there was a call in file 
+    """
+    ii = np.array([trial["trial_start_s"], trial["trial_end_s"]]) * fs
+    ii[1] = min(ii[1], len(breath_norm))  # account for trial_end_s == np.inf
+    ii = ii.astype(int)
+
+    putative_call = (breath_norm[ii[0] : ii[1]].max() >= threshold)
+
+    return putative_call
+
 
 for f in files:
 
@@ -89,16 +105,12 @@ for f in files:
     onsets = onsets / fs
     offsets = offsets / fs
 
-    calls_on, calls_off = segment_notes(
-        smooth=breath, fs=fs, min_int=10, min_dur=0, threshold=np.percentile(breath, 98)
-    )
-
     # mimic .not.mat format
     data = {
-        "onsets": np.concatenate([onsets, calls_on, stims]) * 1000,
-        "offsets": np.concatenate([offsets, calls_off, stims + 0.1]) * 1000,
+        "onsets": np.concatenate([onsets, stims]) * 1000,
+        "offsets": np.concatenate([offsets, stims + 0.1]) * 1000,
         "labels": np.concatenate(
-            [labels, ["call"] * len(calls_on), ["Stimulus"] * len(stims)]
+            [labels, ["Stimulus"] * len(stims)]
         ),
     }
 
@@ -112,6 +124,7 @@ for f in files:
         )
     )
 
+    calls["wav_filename"] = f
     stim_trials["wav_filename"] = f
     stim_trials["breath_zero_point"] = breath_zero_point
 
@@ -120,19 +133,37 @@ for f in files:
         lambda x: calls.loc[x[0], "type"] if len(x) > 0 else "error"
     )
 
-    # putative calls: based on amplitude segmentation
-    putative_calls = list(calls.loc[calls["type"] == "call"].index)
-    stim_trials["putative_call"] = stim_trials["calls_in_range"].apply(
-        lambda x: any([y in putative_calls for y in x])
+    # putative calls: relative to deepest insp in file.
+    breath_norm = (breath - breath_zero_point) / np.abs(breath.min())
+
+    stim_trials["putative_call"] = stim_trials.apply(
+        check_call,
+        breath_norm=breath_norm,
+        threshold=1.1,
+        fs=fs,
+        axis=1,
     )
 
     all_trials.append(
         stim_trials.reset_index().set_index(["wav_filename", "stims_index"])
     )
 
+    all_breaths.append(calls.reset_index().set_index(["wav_filename", "calls_index"]))
+
 all_trials = pd.concat(all_trials).sort_index()
+all_breaths = pd.concat(all_breaths).sort_index()
 
 all_trials
+
+# %%
+# pickle all_trials
+figure_root_dir = "./data/breath_figs-spline_fit"
+
+with open(os.path.join(figure_root_dir, "all_trials.pickle"), "wb") as f:
+    pickle.dump(all_trials, f)
+
+with open(os.path.join(figure_root_dir, "all_breaths.pickle"), "wb") as f:
+    pickle.dump(all_breaths, f)
 
 # %%
 # plot options
@@ -143,13 +174,6 @@ skip_replot = False  # True --> if the plot path already exists, skip replot (ju
 pre_time_s = 0.1
 post_time_s = 3.1
 ylims = [-3500, 10000]
-figure_root_dir = "./data/breath_figs-spline_fit"
-
-# %%
-# pickle all_trials
-
-with open(os.path.join(figure_root_dir, "all_trials.pickle"), "wb") as f:
-    pickle.dump(all_trials, f)
 
 # %%
 # plot & make json records
