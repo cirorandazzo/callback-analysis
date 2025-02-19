@@ -364,6 +364,36 @@ all_trials["putative_call"] = all_trials.apply(
 )
 
 # %%
+# end-pad calls
+
+def pad_insps(trial, pad_to, pad_value):
+
+    insp = trial["insps_unpadded"]
+    pad_length = pad_to - len(insp)
+
+    padded = np.pad(insp, [0, pad_length], mode="constant", constant_values=pad_value)
+
+    return padded
+
+all_trials["insps_padded_call_discrete"] = all_trials.apply(
+    lambda trial: pad_insps(
+        trial,
+        pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
+        pad_value=trial["putative_call"],
+    ),
+    axis=1,
+)
+
+all_trials["insps_padded_right_zero"] = all_trials.apply(
+    lambda trial: pad_insps(
+        trial,
+        pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
+        pad_value=0,
+    ),
+    axis=1,
+)
+
+# %%
 # magnitude distr for putative call
 
 magnitudes = all_trials.apply(
@@ -404,36 +434,6 @@ ax.axhline(y=y, label=f"threshold (const={y})", c="r", linewidth=0.5, linestyle=
 ax.legend(loc="upper right")
 
 plt.show()
-
-# %%
-# end-pad calls
-
-def pad_insps(trial, pad_to, pad_value):
-
-    insp = trial["insps_unpadded"]
-    pad_length = pad_to - len(insp)
-
-    padded = np.pad(insp, [0, pad_length], mode="constant", constant_values=pad_value)
-
-    return padded
-
-all_trials["insps_padded_call_discrete"] = all_trials.apply(
-    lambda trial: pad_insps(
-        trial,
-        pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
-        pad_value=trial["putative_call"],
-    ),
-    axis=1,
-)
-
-all_trials["insps_padded_right_zero"] = all_trials.apply(
-    lambda trial: pad_insps(
-        trial,
-        pad_to=max(all_trials["insps_unpadded"].apply(len)),  # max insp length
-        pad_value=0,
-    ),
-    axis=1,
-)
 
 # %%
 # look at traces for a range of exp magnitudes
@@ -753,15 +753,15 @@ save_folder = pathlib.Path("./data/umap")
 umap_params = dict(
     insp_col_name=[
         "insps_interpolated",
-        "insps_padded_right_zero",
+        # "insps_padded_right_zero",
+        "insps_padded_call_discrete"
     ],
-    n_neighbors=[2, 5, 10, 20, 50, 70, 100],
-    min_dist=[0, 0.001, 0.01, 0.1, 1, 10],
+    n_neighbors=[2, 10, 20, 70],
+    min_dist=[0, 1, 10],
     metric=[
         "cosine",
         "correlation",
         "euclidean",
-        "chebyshev"
     ],
 )
 
