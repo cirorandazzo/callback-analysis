@@ -126,6 +126,9 @@ buffer_fr = int(buffer_ms * fs / 1000) + 1
 all_insps = np.vstack(all_trials["ii_first_insp"]).T
 
 window = (all_insps.min() - buffer_fr, all_insps.max() + buffer_fr)
+
+all_trials["ii_first_insp_window_aligned"] = all_trials["ii_first_insp"].apply(lambda x: x-window[0])
+
 window
 
 # %%
@@ -753,8 +756,8 @@ save_folder = pathlib.Path("./data/umap")
 umap_params = dict(
     insp_col_name=[
         "insps_interpolated",
-        # "insps_padded_right_zero",
-        "insps_padded_call_discrete"
+        "insps_padded_call_discrete",
+        "breath_first_cycle",
     ],
     n_neighbors=[2, 10, 20, 70],
     min_dist=[0, 1, 10],

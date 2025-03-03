@@ -178,7 +178,7 @@ fig.tight_layout()
 # %%
 # UNUSED UMAP INPUT PANELS
 
-# INSPS_UNPADDED
+# ===== INSPS_UNPADDED
 # insp = trial["insps_unpadded"]
 
 # x = np.arange(len(insp)) / fs * 1000
@@ -196,7 +196,9 @@ fig.tight_layout()
 #     ylabel="normalized amplitude",
 # )
 
-# breath_first_cycle_unpadded
+
+# ===== breath_first_cycle_unpadded
+
 # breath = trial["breath_first_cycle_unpadded"]
 # x = np.arange(len(breath)) / fs * 1000
 
@@ -222,6 +224,28 @@ fig.tight_layout()
 #     xlabel="time (ms, insp onset-aligned)",
 #     ylabel="normalized amplitude",
 # )
+
+# %%
+
+fig, ax = plt.subplots()
+
+# ===== breath_first_cycle
+
+breath = trial["breath_first_cycle"]
+x = np.arange(*window) / fs * 1000
+
+ax.plot(
+    x,
+    breath,
+    c="k",
+    **plot_kwargs,
+)
+
+ax.set(
+    title="breath_first_cycle (padded)",
+    xlabel="time (ms, stim-aligned)",
+    ylabel="normalized amplitude",
+)
 
 
 # %%

@@ -23,7 +23,7 @@ import hdbscan
 # %%
 # load umap, all_trials data
 
-embedding_name = "embedding34"
+embedding_name = "embedding82"
 fs = 44100
 
 all_trials_path = Path(r".\data\umap\all_trials.pickle")
@@ -239,14 +239,50 @@ ax.set(
     title=title,
 )
 
-ax.legend()
+# legend outside plot bounds
+ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+# %%
+# highlight certain clusters
+
+# to_highlight = [1,5,6,10,13,14,15]
+# to_highlight = [2,3,4,7,8,9,11,12]
+to_highlight = [0, -1]
+
+fig, ax = plt.subplots()
+
+title = f"{embedding_name}: hdbscan clustering"
+
+cmap = plt.get_cmap("jet", len(cluster_embeddings.keys()))
+
+for i_cluster, cluster_points in cluster_embeddings.items():
+    if i_cluster in to_highlight:
+        color = cmap(i_cluster)
+    else:
+        color = "k"
+
+    ax.scatter(
+        cluster_points[:, 0],
+        cluster_points[:, 1],
+        label=f"{i_cluster}",
+        facecolor=color,
+        s=5,
+        alpha=0.5,
+    )
+
+ax.set(
+    **set_kwargs,
+    title=title,
+)
+
+ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 # %%
 # plot traces by cluster
 
 cluster_set_kwargs = dict(
     ylabel="amplitude",
-    ylim=[-1.05, 0.05],
+    ylim=[-1.05, 5.25],
 )
 
 # =========PICK TRACE TYPE=========#
@@ -256,8 +292,7 @@ cluster_set_kwargs = dict(
 # trace_type = "insps_padded_right_zero"
 # trace_type = "breath_first_cycle"
 # trace_type = "breath_first_cycle_unpadded"
-trace_type = "insps_unpadded"
-
+# trace_type = "insps_unpadded"
 
 # =========STACK TRACES=========#
 
@@ -265,8 +300,8 @@ trace_type = "insps_unpadded"
 # traces = all_trials[trace_type]
 
 # pad at end (keep alignment)
-max_len = max(all_trials[trace_type].apply(len))
-traces = all_trials[trace_type].apply(lambda x: np.pad(x, [0, max_len - len(x)]))
+# max_len = max(all_trials[trace_type].apply(len))
+# traces = all_trials[trace_type].apply(lambda x: np.pad(x, [0, max_len - len(x)]))
 
 # align to insp offset - pad at beginning & end
 # max_len_insp = max(all_trials[trace_type].apply(len))
@@ -278,6 +313,29 @@ traces = all_trials[trace_type].apply(lambda x: np.pad(x, [0, max_len - len(x)])
 # )
 # max_len = max(traces.apply(len))
 # traces = traces.apply(lambda x: np.pad(x, [0, max_len - len(x)]))
+
+
+# align to insp onset
+def get_padded(trial, pre_frames, post_frames):
+    insp_on = trial["ii_first_insp_window_aligned"][0]
+
+    st = insp_on - pre_frames
+    en = insp_on + post_frames
+
+    assert (st > 0)
+    assert (en < len(trial["breath_norm"]))
+
+    return trial["breath_norm"][st:en]
+
+
+pre_frames = int(0.5 * fs)
+post_frames = int(0.5 * fs)
+
+traces = all_trials.apply(
+    get_padded,
+    args=[pre_frames, post_frames],
+    axis=1
+)
 
 # stack all traces in a numpy array
 all_traces = np.vstack(traces)
@@ -292,7 +350,7 @@ cluster_data = {
 }
 
 # label = "call"
-# cluster_traces = {
+# cluster_data = {
 #     i_cluster: all_traces[
 #         (clusterer.labels_ == i_cluster)
 #         & np.array(all_trials["putative_call"]).astype(bool)
@@ -301,7 +359,7 @@ cluster_data = {
 # }
 
 # label = "no call"
-# cluster_traces = {
+# cluster_data = {
 #     i_cluster: all_traces[
 #         (clusterer.labels_ == i_cluster)
 #         & ~np.array(all_trials["putative_call"]).astype(bool)
@@ -312,8 +370,8 @@ cluster_data = {
 # =========GET X=========#
 
 # insp_interpolated x: [0, 1]
-x = np.linspace(0, 1, all_traces.shape[1])
-cluster_set_kwargs["xlabel"] = "normalized inspiration duration"
+# x = np.linspace(0, 1, all_traces.shape[1])
+# cluster_set_kwargs["xlabel"] = "normalized inspiration duration"
 
 # insp offset aligned (ms)
 # x = (np.arange(max_len) - max_len_insp) / fs * 1000
@@ -331,6 +389,9 @@ cluster_set_kwargs["xlabel"] = "normalized inspiration duration"
 # x = np.arange(*window) / fs * 1000
 # cluster_set_kwargs["xlabel"] = "time (ms, stim-aligned)"
 
+# insp onset aligned with pre time (ms):
+x = np.linspace(-1 * pre_frames, post_frames, all_traces.shape[1])
+cluster_set_kwargs["xlabel"] = "time (ms, insp onset-aligned)"
 
 # =========PLOT=========#
 
@@ -446,4 +507,25 @@ ax.set(
     xlabel="cluster",
     ylabel="% of trials with call",
     title="putative call pct",
+)
+
+# %%
+# CLUSTER SIZE
+
+cluster_data = {
+    i_cluster: sum((clusterer.labels_ == i_cluster))
+    for i_cluster in np.unique(clusterer.labels_)
+}
+
+fig, ax = plt.subplots()
+
+clusters, heights = cluster_data.keys(), cluster_data.values()
+
+ax.bar(clusters, heights)
+ax.set_xticks(list(clusters))
+
+ax.set(
+    xlabel="cluster",
+    ylabel="count (# trials)",
+    title="cluster size",
 )
