@@ -2,9 +2,6 @@
 # breaths-umap_all.py
 #
 
-import glob
-from itertools import product
-import os
 from pathlib import Path
 import pickle
 
@@ -14,8 +11,6 @@ import pandas as pd
 import matplotlib.colors
 import matplotlib.pyplot as plt
 
-import umap
-
 import hdbscan
 
 from utils.file import parse_birdname
@@ -23,21 +18,17 @@ from utils.file import parse_birdname
 # %%
 # load umap, all_breaths data
 
-embedding_name = "embedding035-exp"
+embedding_name = "embedding003-insp"
 fs = 44100
 
-all_breaths_path = Path(r".\data\umap-all_breaths\all_breaths.pickle")
+all_breaths_path = Path(rf"M:\public\Ciro\callback-breaths\umap-all_breaths\all_breaths.pickle")
 all_trials_path = Path(r"./data/breath_figs-spline_fit/all_trials.pickle")
 
-umap_pickle_path = Path(rf".\data\umap-all_breaths\{embedding_name}.pickle")
+umap_pickle_path = Path(rf"M:\public\Ciro\callback-breaths\umap-all_breaths\{embedding_name}.pickle")
 
 # breath data
 with open(all_breaths_path, "rb") as f:
     all_breaths = pickle.load(f)
-
-    # take only type in embedding
-    ii_type = all_breaths["type"] == embedding_name.split("-")[-1]
-    all_breaths = all_breaths.loc[ii_type]
 
 # trial data
 with open(all_trials_path, "rb") as f:
@@ -69,9 +60,46 @@ all_breaths["time_since_stim_s"] = all_breaths.apply(
     all_trials=all_trials,
 )
 
+# %%
+# take only type in embedding
+ii_type = all_breaths["type"] == embedding_name.split("-")[-1]
+
+other_breaths = all_breaths.loc[~ii_type]
+all_breaths = all_breaths.loc[ii_type]
 
 # %%
+# indices for next breath
 
+
+def loc_relative(wav_filename, calls_index, df, field="index", i=1, default=None):
+
+    # return value
+    v = default
+
+    try:
+        # get trial & check its existence
+        i_next = (wav_filename, calls_index + i)
+        trial = df.loc[i_next]
+
+        if field == "index":
+            v = i_next
+        else:
+            v = trial[field]
+
+    except KeyError as e:
+        pass
+
+    return v
+
+
+# example usage
+ii_next = all_breaths.apply(
+    lambda x: loc_relative(*x.name, df=other_breaths, i=1, field="index"),
+    axis=1,
+)
+
+
+# %%
 # kwargs consistent across
 scatter_kwargs = dict(
     x=embedding[:, 0],
@@ -229,11 +257,11 @@ ax.legend(handles=handles, labels=[label_map[x] for x in labels])
 
 clusterer = hdbscan.HDBSCAN(
     metric="l1",
-    min_cluster_size=20,
-    min_samples=10,
+    min_cluster_size=130,
+    min_samples=1,
     cluster_selection_method="leaf",
     gen_min_span_tree=True,
-    cluster_selection_epsilon=0.5,
+    cluster_selection_epsilon=0.2,
 )
 
 clusterer.fit(embedding)
@@ -260,7 +288,7 @@ for i_cluster, cluster_points in cluster_embeddings.items():
         cluster_points[:, 1],
         label=f"{i_cluster}",
         facecolor=color,
-        s=5,
+        s=1,
         alpha=0.5,
     )
 
@@ -287,17 +315,16 @@ cmap = plt.get_cmap("jet", len(cluster_embeddings.keys()))
 
 for i_cluster, cluster_points in cluster_embeddings.items():
     if i_cluster in to_highlight:
-        color = cmap(i_cluster)
+        color = cmap(i_cluster, alpha=0.5)
     else:
-        color = "k"
+        color = [0,0,0,.1]
 
     ax.scatter(
         cluster_points[:, 0],
         cluster_points[:, 1],
         label=f"{i_cluster}",
         facecolor=color,
-        s=5,
-        alpha=0.5,
+        s=2,
     )
 
 ax.set(
@@ -312,7 +339,8 @@ ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 cluster_set_kwargs = dict(
     ylabel="amplitude",
-    ylim=[-1.05, 6.7],
+    # ylim=[-1.05, 6.7],
+    ylim=[-1.05, 0.05],
 )
 
 # =========PICK TRACE TYPE=========#
@@ -323,10 +351,10 @@ trace_type = "breath_norm"
 
 # =========STACK TRACES=========#
 
-# use traces as-is (requires same length)
+# === use traces as-is (requires same length)
 # traces = all_breaths[trace_type]
 
-# pad at end (keep alignment)
+# === pad at end (keep alignment)
 def do_pad(x, max_length):
     if len(x) > max_length:
         return x[:max_length]
@@ -335,10 +363,10 @@ def do_pad(x, max_length):
 
 
 # max_len = max(all_breaths[trace_type].apply(len))
-max_len = int(0.7 * fs)
+max_len = int(0.4 * fs)
 traces = all_breaths[trace_type].apply(do_pad, max_length=max_len)
 
-# align to insp offset - pad at beginning & end
+# === align to insp offset - pad at beginning & end
 # max_len_insp = max(all_breaths[trace_type].apply(len))
 # traces = all_breaths.apply(
 #     lambda trial: np.pad(
@@ -350,7 +378,7 @@ traces = all_breaths[trace_type].apply(do_pad, max_length=max_len)
 # traces = traces.apply(lambda x: np.pad(x, [0, max_len - len(x)]))
 
 
-# align to insp onset
+# === align to insp onset
 # def get_padded(trial, pre_frames, post_frames):
 #     insp_on = trial["ii_first_insp_window_aligned"][0]
 
@@ -467,24 +495,24 @@ for i_cluster, traces in cluster_data.items():
 # %%
 # VIOLIN PLOT BY CLUSTER
 
-# data = all_breaths.duration_s
-# set_kwargs = dict(
-#     title="exp duration",
-#     ylabel="exp duration (s)",
-#     ylim=[-0.1, 0.7],
-# )
+data = all_breaths.duration_s
+violin_set_kwargs = dict(
+    title="duration",
+    ylabel="duration (s)",
+    ylim=[-0.1, 0.7],
+)
 
 # data = all_breaths.amplitude
-# set_kwargs = dict(
+# violin_set_kwargs = dict(
 #     title="amplitude",
 #     ylabel="amplitude (normalized)",
 # )
 
-data = all_breaths.stims_index
-set_kwargs = dict(
-    title="breath segs since stim",
-    ylabel="breath segs since stim",
-)
+# data = all_breaths.stims_index
+# violin_set_kwargs = dict(
+#     title="breath segs since stim",
+#     ylabel="breath segs since stim",
+# )
 
 cluster_data = {
     i_cluster: data[(clusterer.labels_ == i_cluster) & data.notna()]
@@ -499,7 +527,7 @@ fig, ax = plt.subplots()
 ax.violinplot(data, showextrema=False)
 ax.set_xticks(ticks=range(1, 1 + len(labels)), labels=labels)
 
-ax.set(xlabel="cluster", **set_kwargs)
+ax.set(xlabel="cluster", **violin_set_kwargs)
 
 
 # %%

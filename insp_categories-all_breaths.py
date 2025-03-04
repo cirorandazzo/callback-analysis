@@ -183,8 +183,8 @@ all_breaths
 # %%
 # interpolated
 
-interpolate_length = int(12e3)  # 96.9% of trials shorter than this.
-
+# interpolate_length = int(12e3)  # 96.9% of trials shorter than this.
+interpolate_length = int(15253)  # used for first-insp umap embeddings
 
 all_breaths["breath_interpolated"] = all_breaths["breath_norm"].apply(
     lambda trial: np.interp(
@@ -198,7 +198,7 @@ all_breaths["breath_interpolated"] = all_breaths["breath_norm"].apply(
 # %%
 # prep umap parameters
 
-save_folder = pathlib.Path("./data/umap-all_breaths")
+save_folder = pathlib.Path("M:\public\Ciro\callback-breaths\umap-all_breaths")
 
 metrics=[
         "cosine",
@@ -218,9 +218,9 @@ datasets = {
 # }
 
 umap_params = dict(
-    breath_type=["insp", "exp"],
-    n_neighbors=[100, 500, 1000],
-    min_dist=[0.1, 0.5, 0.9], 
+    breath_type=["insp"],  # , "exp"],
+    n_neighbors=[5, 10, 100, 500],
+    min_dist=[0.001, 0.01, 0.1, 0.5],
     metric=metrics,
 )
 
