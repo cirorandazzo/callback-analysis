@@ -236,7 +236,7 @@ for condition in product(*umap_params.values()):
 # save data
 # save all_breaths. drop interpolated; huge file
 with open(save_folder.joinpath(f"all_breaths.pickle"), "wb") as f:
-    pickle.dump(all_breaths.drop(columns=["breath_interpolated"]), f)
+    pickle.dump(all_breaths, f)
 
 with open(save_folder.joinpath("breaths_mats.pickle"), "wb") as f:
     pickle.dump(datasets, f)
