@@ -14,6 +14,11 @@ import matplotlib.pyplot as plt
 import hdbscan
 
 from utils.file import parse_birdname
+from utils.umap import get_time_since_stim, loc_relative, plot_embedding_data
+
+# %load_ext autoreload
+# %autoreload 1
+# %aimport utils.umap
 
 # %%
 # load umap, all_breaths data
@@ -47,13 +52,6 @@ model
 # %%
 # add time since stim
 
-def get_time_since_stim(x, all_trials):
-    if pd.isna(x.stims_index):
-        return pd.NA
-    else:
-        return (x.start_s - all_trials.loc[(x.name[0], x.stims_index), "trial_start_s"])
-
-
 all_breaths["time_since_stim_s"] = all_breaths.apply(
     get_time_since_stim,
     axis=1,
@@ -70,40 +68,15 @@ all_breaths = all_breaths.loc[ii_type]
 # %%
 # indices for next breath
 
-
-def loc_relative(wav_filename, calls_index, df, field="index", i=1, default=None):
-
-    # return value
-    v = default
-
-    try:
-        # get trial & check its existence
-        i_next = (wav_filename, calls_index + i)
-        trial = df.loc[i_next]
-
-        if field == "index":
-            v = i_next
-        else:
-            v = trial[field]
-
-    except KeyError as e:
-        pass
-
-    return v
-
-
 # example usage
 ii_next = all_breaths.apply(
     lambda x: loc_relative(*x.name, df=other_breaths, i=1, field="index"),
     axis=1,
 )
 
-
 # %%
 # kwargs consistent across
 scatter_kwargs = dict(
-    x=embedding[:, 0],
-    y=embedding[:, 1],
     s=.2,
     alpha=0.5,
 )
@@ -116,141 +89,64 @@ set_kwargs = dict(
 # %%
 # PUTATIVE CALL
 
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: putative call"
-
-# PLOT
-colors = np.array(all_breaths["putative_call"]).astype(int)
-sc = ax.scatter(
-    **scatter_kwargs,
-    c=colors,
-    cmap="Dark2",
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_breaths,
+    plot_type="putative_call",
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
 )
-
-ax.set(
-    **set_kwargs,
-    title=title,
-)
-
-handles, labels = sc.legend_elements()
-
-label_map = {
-    "$\\mathdefault{0}$": "No call",
-    "$\\mathdefault{1}$": "Call",
-}
-
-legend = ax.legend(handles=handles, labels=[label_map[x] for x in labels])
 
 # %%
 # AMPLITUDE
 
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: AMPLITUDE"
-
-sc = ax.scatter(
-    **scatter_kwargs,
-    c=all_breaths.amplitude,
-    cmap="magma_r",
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_breaths,
+    plot_type="amplitude",
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
 )
-
-ax.set(
-    **set_kwargs,
-    title=title,
-)
-
-cbar = fig.colorbar(sc, label="amplitude (normalized)")
 
 # %%
 # DURATION
 
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: DURATION"
-
-sc = ax.scatter(
-    **scatter_kwargs,
-    c=all_breaths.duration_s,
-    cmap="magma_r",
-    vmax=1.0,  #  >1s all colored the same
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_breaths,
+    plot_type="duration",
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
+    vmax=0.7,
 )
-
-ax.set(
-    **set_kwargs,
-    title=title,
-)
-
-cbar = fig.colorbar(sc, label="duration (s)")
 
 # %%
-# TIME SINCE STIM
+# BREATHS SINCE LAST STIM
 
-fig, ax = plt.subplots()
-
-n_since_stim = all_breaths["trial_index"].fillna(-1)
-
-n_breaths = 8  # 7+ all colored the same
-cmap = plt.get_cmap("viridis_r", n_breaths)
-cmap.set_bad("k")
-
-
-title = f"{embedding_name}: BREATHS SINCE STIM"
-sc = ax.scatter(
-    **scatter_kwargs,
-    c=np.ma.masked_equal(n_since_stim, -1),
-    cmap=cmap,
-    vmin=0,
-    vmax=n_breaths,
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_breaths,
+    plot_type="breaths_since_stim",
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
+    n_breaths=6,
 )
-
-ax.set(
-    **set_kwargs,
-    title=title,
-)
-
-cbar = fig.colorbar(sc, label="breaths since stim")
-
-ticks = [str(int(r)) for r in cbar.get_ticks()]
-ticks[-1] = ""
-ticks[-2] = f"{ticks[-2]}+"
-cbar.set_ticklabels(ticks)
 
 # %%
 # BY BIRD
 
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: bird id"
-
-birdnames = pd.Categorical(all_breaths.apply(lambda x: parse_birdname(x.name[0]), axis=1))
-
-# cmap =
-# colors = [cmap[bird] for bird in ]
-
-cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
-    "", ["#14342B", "#F5BB00", "#FF579F"]
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_breaths,
+    plot_type="bird_id",
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
 )
-
-sc = ax.scatter(
-    **scatter_kwargs,
-    c=birdnames.codes,
-    cmap=cmap,
-)
-
-ax.set(
-    **set_kwargs,
-    title=title,
-)
-
-handles, labels = sc.legend_elements()
-
-label_map = {
-    "$\\mathdefault{" + str(i) + "}$": birdnames.categories[i]
-    for i in range(len(birdnames.categories))
-}
-
-ax.legend(handles=handles, labels=[label_map[x] for x in labels])
 
 # %%
 # clustering

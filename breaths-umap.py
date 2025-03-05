@@ -20,10 +20,12 @@ import umap
 
 import hdbscan
 
+from utils.umap import plot_embedding_data
+
 # %%
 # load umap, all_trials data
 
-embedding_name = "embedding82"
+embedding_name = "embedding0"
 fs = 44100
 
 all_trials_path = Path(r".\data\umap\all_trials.pickle")
@@ -52,8 +54,6 @@ model
 
 # kwargs consistent across
 scatter_kwargs = dict(
-    x=embedding[:, 0],
-    y=embedding[:, 1],
     s=4,
     alpha=0.8,
 )
@@ -66,133 +66,70 @@ set_kwargs = dict(
 # %%
 # PUTATIVE CALL
 
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: putative call"
-
-# PLOT
-colors = np.array(all_trials["putative_call"]).astype(int)
-sc = ax.scatter(
-    **scatter_kwargs,
-    c=colors,
-    cmap="Dark2",
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_trials,
+    plot_type="putative_call",
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
 )
-
-ax.set(
-    **set_kwargs,
-    title=title,
-)
-
-handles, labels = sc.legend_elements()
-
-label_map = {
-    "$\\mathdefault{0}$": "No call",
-    "$\\mathdefault{1}$": "Call",
-}
-
-legend = ax.legend(handles=handles, labels=[label_map[x] for x in labels])
-
 # %%
 # INSP OFFSET
 
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: insp OFFSET"
-
 offsets_ms = all_insps[1, :] / fs * 1000
 
-sc = ax.scatter(
-    **scatter_kwargs,
-    c=offsets_ms,
-    cmap="magma_r",
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_trials,
+    plot_type="insp_offset",
+    fs=44100,
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
 )
-
-ax.set(
-    **set_kwargs,
-    title=title,
-)
-
-cbar = fig.colorbar(sc, label="insp offset (ms, stim-aligned)")
-
 # %%
 # INSP ONSET
 
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: insp ONSET"
-
 onsets_ms = all_insps[0, :] / fs * 1000
 
-sc = ax.scatter(
-    **scatter_kwargs,
-    c=onsets_ms,
-    cmap="RdYlGn",
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_trials,
+    plot_type="insp_onset",
+    fs=44100,
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
 )
-
-ax.set(
-    **set_kwargs,
-    title=title,
-)
-
-cbar = fig.colorbar(sc, label="insp onset (ms, stim-aligned)")
 
 # %%
 # INSP DURATION
 
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: insp DURATION"
-
 duration_ms = (all_insps[1, :] - all_insps[0, :]) / fs * 1000
 
-sc = ax.scatter(
-    **scatter_kwargs,
-    c=duration_ms,
-    cmap="cool",
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_trials,
+    plot_type="duration",
+    vmax = duration_ms.max() + 50,
+    fs=44100,
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
 )
-
-ax.set(
-    **set_kwargs,
-    title=title,
-)
-
-cbar = fig.colorbar(sc, label="insp duration (ms)")
 
 # %%
 # BY BIRD
 
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: bird id"
-
-birdnames = pd.Categorical(all_trials.index.get_level_values("birdname"))
-
-# cmap =
-# colors = [cmap[bird] for bird in ]
-
-cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
-    "", ["#14342B", "#F5BB00", "#FF579F"]
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_trials,
+    plot_type="bird_id",
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
 )
-
-sc = ax.scatter(
-    **scatter_kwargs,
-    c=birdnames.codes,
-    cmap=cmap,
-)
-
-ax.set(
-    **set_kwargs,
-    title=title,
-)
-
-handles, labels = sc.legend_elements()
-
-label_map = {
-    "$\\mathdefault{" + str(i) + "}$": birdnames.categories[i]
-    for i in range(len(birdnames.categories))
-}
-
-ax.legend(handles=handles, labels=[label_map[x] for x in labels])
 
 # %%
 # clustering
