@@ -32,22 +32,40 @@ all_trials_path = Path(r"./data/breath_figs-spline_fit/all_trials.pickle")
 umap_pickle_path = Path(rf"M:\public\Ciro\callback-breaths\umap-all_breaths\{embedding_name}.pickle")
 
 # breath data
+print("loading all breaths data...")
 with open(all_breaths_path, "rb") as f:
     all_breaths = pickle.load(f)
+print("all breaths data loaded!")
 
 # trial data
+print("loading all trials data...")
 with open(all_trials_path, "rb") as f:
-
     all_trials = pickle.load(f)
+print("all trials data loaded!")
 
 # UMAP
+# note: ensure environment is EXACTLY the same as when the model was trained.
+# otherwise, the model may not load.
+print("loading umap embedding...")
 with open(umap_pickle_path, "rb") as f:
     model = pickle.load(f)
+print("umap embedding loaded!")
 
 embedding = model.embedding_
 
 model
 
+# %%
+# kwargs consistent across
+scatter_kwargs = dict(
+    s=.2,
+    alpha=0.5,
+)
+
+set_kwargs = dict(
+    xlabel="UMAP1",
+    ylabel="UMAP2",
+)
 
 # %%
 # add time since stim
@@ -72,18 +90,6 @@ all_breaths = all_breaths.loc[ii_type]
 ii_next = all_breaths.apply(
     lambda x: loc_relative(*x.name, df=other_breaths, i=1, field="index"),
     axis=1,
-)
-
-# %%
-# kwargs consistent across
-scatter_kwargs = dict(
-    s=.2,
-    alpha=0.5,
-)
-
-set_kwargs = dict(
-    xlabel="UMAP1",
-    ylabel="UMAP2",
 )
 
 # %%
@@ -120,7 +126,9 @@ plot_embedding_data(
     plot_type="duration",
     scatter_kwargs=scatter_kwargs,
     set_kwargs=set_kwargs,
-    vmax=0.7,
+    vmin=0,
+    vmax=400,
+    cmap_name="viridis",
 )
 
 # %%
@@ -162,80 +170,34 @@ clusterer = hdbscan.HDBSCAN(
 
 clusterer.fit(embedding)
 
-cluster_embeddings = {
-    i_cluster: embedding[clusterer.labels_ == i_cluster]
-    for i_cluster in np.unique(clusterer.labels_)
-}
-
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: hdbscan clustering"
-
-cmap = plt.get_cmap("jet", len(cluster_embeddings.keys()))
-
-for i_cluster, cluster_points in cluster_embeddings.items():
-    if i_cluster == -1:
-        color = "k"
-    else:
-        color = cmap(i_cluster)
-
-    ax.scatter(
-        cluster_points[:, 0],
-        cluster_points[:, 1],
-        label=f"{i_cluster}",
-        facecolor=color,
-        s=1,
-        alpha=0.5,
-    )
-
-ax.set(
-    **set_kwargs,
-    title=title,
+plot_embedding_data(
+    embedding=embedding,
+    embedding_name=embedding_name,
+    plot_type="clusters",
+    clusterer=clusterer,
+    set_kwargs=set_kwargs,
+    scatter_kwargs=scatter_kwargs,
+    set_bad=dict(c="k", alpha=1),
 )
-
-# legend outside plot bounds
-ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 # %%
 # highlight certain clusters
-
-# to_highlight = [1,5,6,10,13,14,15]
-# to_highlight = [2,3,4,7,8,9,11,12]
-to_highlight = [0, -1]
-
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: hdbscan clustering"
-
-cmap = plt.get_cmap("jet", len(cluster_embeddings.keys()))
-
-for i_cluster, cluster_points in cluster_embeddings.items():
-    if i_cluster in to_highlight:
-        color = cmap(i_cluster, alpha=0.5)
-    else:
-        color = [0,0,0,.1]
-
-    ax.scatter(
-        cluster_points[:, 0],
-        cluster_points[:, 1],
-        label=f"{i_cluster}",
-        facecolor=color,
-        s=2,
-    )
-
-ax.set(
-    **set_kwargs,
-    title=title,
+plot_embedding_data(
+    embedding=embedding,
+    embedding_name=embedding_name,
+    plot_type="clusters",
+    clusterer=clusterer,
+    set_kwargs=set_kwargs,
+    scatter_kwargs=scatter_kwargs,
+    masked_clusters=[-1, 5, 10, 12, 13],
+    set_bad=dict(c="k", alpha=1),
 )
-
-ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 # %%
 # plot traces by cluster
 
 cluster_set_kwargs = dict(
     ylabel="amplitude",
-    # ylim=[-1.05, 6.7],
     ylim=[-1.05, 0.05],
 )
 
