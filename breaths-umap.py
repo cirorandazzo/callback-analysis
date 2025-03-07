@@ -20,7 +20,14 @@ import umap
 
 import hdbscan
 
-from utils.umap import plot_embedding_data
+from utils.umap import (
+    plot_cluster_traces_pipeline,
+    plot_embedding_data,
+)
+
+# %load_ext autoreload
+# %autoreload 1
+# %aimport utils.umap
 
 # %%
 # load umap, all_trials data
@@ -74,6 +81,7 @@ plot_embedding_data(
     scatter_kwargs=scatter_kwargs,
     set_kwargs=set_kwargs,
 )
+
 # %%
 # INSP OFFSET
 
@@ -88,6 +96,7 @@ plot_embedding_data(
     scatter_kwargs=scatter_kwargs,
     set_kwargs=set_kwargs,
 )
+
 # %%
 # INSP ONSET
 
@@ -136,7 +145,7 @@ plot_embedding_data(
 
 clusterer = hdbscan.HDBSCAN(
     metric="l1",
-    min_cluster_size=20,
+    min_cluster_size=200,
     min_samples=1,
     cluster_selection_method="leaf",
     gen_min_span_tree=True,
@@ -145,219 +154,116 @@ clusterer = hdbscan.HDBSCAN(
 
 clusterer.fit(embedding)
 
-cluster_embeddings = {
-    i_cluster: embedding[clusterer.labels_ == i_cluster]
-    for i_cluster in np.unique(clusterer.labels_)
-}
-
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: hdbscan clustering"
-
-cmap = plt.get_cmap("jet", len(cluster_embeddings.keys()))
-
-for i_cluster, cluster_points in cluster_embeddings.items():
-    if i_cluster == -1:
-        color = "k"
-    else:
-        color = cmap(i_cluster)
-
-    ax.scatter(
-        cluster_points[:, 0],
-        cluster_points[:, 1],
-        label=f"{i_cluster}",
-        facecolor=color,
-        s=5,
-        alpha=0.5,
-    )
-
-ax.set(
-    **set_kwargs,
-    title=title,
+ax_clusters = plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_trials,
+    plot_type="clusters",
+    clusterer=clusterer,
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
 )
 
-# legend outside plot bounds
-ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+cluster_cmap = ax_clusters.collections[0].get_cmap()
 
 # %%
 # highlight certain clusters
 
-# to_highlight = [1,5,6,10,13,14,15]
-# to_highlight = [2,3,4,7,8,9,11,12]
-to_highlight = [0, -1]
-
-fig, ax = plt.subplots()
-
-title = f"{embedding_name}: hdbscan clustering"
-
-cmap = plt.get_cmap("jet", len(cluster_embeddings.keys()))
-
-for i_cluster, cluster_points in cluster_embeddings.items():
-    if i_cluster in to_highlight:
-        color = cmap(i_cluster)
-    else:
-        color = "k"
-
-    ax.scatter(
-        cluster_points[:, 0],
-        cluster_points[:, 1],
-        label=f"{i_cluster}",
-        facecolor=color,
-        s=5,
-        alpha=0.5,
-    )
-
-ax.set(
-    **set_kwargs,
-    title=title,
+plot_embedding_data(
+    embedding,
+    embedding_name,
+    all_trials,
+    plot_type="clusters",
+    clusterer=clusterer,
+    highlighted_clusters=[-1, 10, 12, 20],
+    scatter_kwargs=scatter_kwargs,
+    set_kwargs=set_kwargs,
 )
-
-ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 # %%
 # plot traces by cluster
+plt.close("all")
 
 cluster_set_kwargs = dict(
     ylabel="amplitude",
-    ylim=[-1.05, 5.25],
+    ylim=[-1.05, 0.05],
 )
 
-# =========PICK TRACE TYPE=========#
-# any column in all_trials
+# =========SELECTIONS=========#
+# which trace to plot : select one trace_kwargs dict
 
-# trace_type = "insps_interpolated"
-# trace_type = "insps_padded_right_zero"
-# trace_type = "breath_first_cycle"
-# trace_type = "breath_first_cycle_unpadded"
-# trace_type = "insps_unpadded"
+trace_kwargs = dict(
+    trace_type="insps_interpolated",
+    set_kwargs={**cluster_set_kwargs, "xlim": [-0.05, 1.05]},
+)
 
-# =========STACK TRACES=========#
-
-# use traces as-is (requires same length)
-# traces = all_trials[trace_type]
-
-# pad at end (keep alignment)
-# max_len = max(all_trials[trace_type].apply(len))
-# traces = all_trials[trace_type].apply(lambda x: np.pad(x, [0, max_len - len(x)]))
-
-# align to insp offset - pad at beginning & end
-# max_len_insp = max(all_trials[trace_type].apply(len))
-# traces = all_trials.apply(
-#     lambda trial: np.pad(
-#         trial[trace_type], [max_len_insp - len(trial["insps_unpadded"]), 0]
-#     ),
-#     axis=1,
+# trace_kwargs = dict(
+#     trace_type="insps_unpadded",
+#     aligned_to="insp onset",
+#     padding_kwargs=dict(pad_method="end", max_length=None),
+#     set_kwargs={**cluster_set_kwargs, },
 # )
-# max_len = max(traces.apply(len))
-# traces = traces.apply(lambda x: np.pad(x, [0, max_len - len(x)]))
 
+# trace_kwargs = dict(
+#     trace_type="insps_unpadded",
+#     aligned_to="insp offset",
+#     padding_kwargs=dict(pad_method="beginning", max_length=None),
+#     set_kwargs={**cluster_set_kwargs, },
+# )
 
-# align to insp onset
-def get_padded(trial, pre_frames, post_frames):
-    insp_on = trial["ii_first_insp_window_aligned"][0]
+# trace_kwargs = dict(
+#     trace_type="insps_padded_right_zero",
+#     aligned_to="insp onset",
+#     padding_kwargs=dict(pad_method="end", max_length=None),
+#     set_kwargs={**cluster_set_kwargs},
+# )
 
-    st = insp_on - pre_frames
-    en = insp_on + post_frames
+# TODO: breath_norm with alignments:
+# insp onset
+# insp offset
+# stim onset
 
-    assert (st > 0)
-    assert (en < len(trial["breath_norm"]))
+# need window, defined in insp_categories.py
+buffer_ms = 500
+buffer_fr = int(buffer_ms * fs / 1000) + 1
+all_insps = np.vstack(all_trials["ii_first_insp"]).T
+window = np.array((all_insps.min() - buffer_fr, all_insps.max() + buffer_fr))
 
-    return trial["breath_norm"][st:en]
+# trace_kwargs = dict(  # this was an accident lol 
+#     trace_type="breath_first_cycle",
+#     aligned_to="insp onset",
+#     padding_kwargs=dict(
+#         pad_method="aligned",
+#         max_length=abs(window),
+#         i_align=all_insps[0, :] - window[0],
+#     ),
+#     set_kwargs={**cluster_set_kwargs, "ylim": [-1.05, 6], "xlim": [-100, 500]},
+# )
 
-
-pre_frames = int(0.5 * fs)
-post_frames = int(0.5 * fs)
-
-traces = all_trials.apply(
-    get_padded,
-    args=[pre_frames, post_frames],
-    axis=1
+trace_kwargs = dict(
+    trace_type="breath_first_cycle",
+    aligned_to="stim onset",
+    padding_kwargs=dict(
+        aligned_at=abs(window[0]),
+    ),
+    set_kwargs={**cluster_set_kwargs, "ylim": [-1.05, 6], "xlim": [-100, 500]},
 )
 
-# stack all traces in a numpy array
-all_traces = np.vstack(traces)
+
+# which trials to plot: select "all", "call", or "no call"
+select = "all"
+# select = "call"
+# select = "no call"
 
 
-# =========PLOT SUBSET=========#
-
-label = "all"
-cluster_data = {
-    i_cluster: all_traces[(clusterer.labels_ == i_cluster)]
-    for i_cluster in np.unique(clusterer.labels_)
-}
-
-# label = "call"
-# cluster_data = {
-#     i_cluster: all_traces[
-#         (clusterer.labels_ == i_cluster)
-#         & np.array(all_trials["putative_call"]).astype(bool)
-#     ]
-#     for i_cluster in np.unique(clusterer.labels_)
-# }
-
-# label = "no call"
-# cluster_data = {
-#     i_cluster: all_traces[
-#         (clusterer.labels_ == i_cluster)
-#         & ~np.array(all_trials["putative_call"]).astype(bool)
-#     ]
-#     for i_cluster in np.unique(clusterer.labels_)
-# }
-
-# =========GET X=========#
-
-# insp_interpolated x: [0, 1]
-# x = np.linspace(0, 1, all_traces.shape[1])
-# cluster_set_kwargs["xlabel"] = "normalized inspiration duration"
-
-# insp offset aligned (ms)
-# x = (np.arange(max_len) - max_len_insp) / fs * 1000
-# cluster_set_kwargs["xlabel"] = "time (ms, insp offset-aligned)"
-
-# onset aligned (ms)
-# x = np.arange(all_traces.shape[1]) / fs * 1000
-# cluster_set_kwargs["xlabel"] = "time (ms, insp onset aligned)"
-
-# stim-aligned (ms): requires "window" var from insp_categories
-# buffer_ms = 500
-# buffer_fr = int(buffer_ms * fs / 1000) + 1
-# all_insps = np.vstack(all_trials["ii_first_insp"]).T
-# window = (all_insps.min() - buffer_fr, all_insps.max() + buffer_fr)
-# x = np.arange(*window) / fs * 1000
-# cluster_set_kwargs["xlabel"] = "time (ms, stim-aligned)"
-
-# insp onset aligned with pre time (ms):
-x = np.linspace(-1 * pre_frames, post_frames, all_traces.shape[1])
-cluster_set_kwargs["xlabel"] = "time (ms, insp onset-aligned)"
-
-# =========PLOT=========#
-
-for i_cluster, traces in cluster_data.items():
-    fig, ax = plt.subplots()
-
-    if i_cluster == -1:
-        title_color = "k"
-    else:
-        title_color = cmap(i_cluster)
-
-    # plot trials
-    ax.plot(x, traces.T, color="k", alpha=0.7, linewidth=0.5)
-
-    # plot mean
-    ax.plot(x, traces.T.mean(axis=1), color="r", linewidth=1)
-
-    # title n
-    if label == "all":
-        n = sum(clusterer.labels_ == i_cluster)
-    else:
-        n = f"{traces.shape[0]}/{sum(clusterer.labels_ == i_cluster)}"
-
-    ax.set_title(
-        f"cluster {i_cluster} traces {label} (n={n})",
-        color=title_color,
-    )
-
-    ax.set(**cluster_set_kwargs)
+axs_cluster_traces = plot_cluster_traces_pipeline(
+    **trace_kwargs,
+    df=all_trials,
+    fs=fs,
+    clusterer=clusterer,
+    select=select,
+    cluster_cmap=cluster_cmap,
+)
 
 # %%
 # 3d with call duration
