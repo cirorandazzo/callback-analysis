@@ -1,7 +1,5 @@
 # %%
-#
-# %load_ext autoreload
-# %autoreload 1
+# make-df.py
 
 import glob
 import numpy as np
@@ -9,7 +7,8 @@ import pandas as pd
 
 import os
 
-
+# %load_ext autoreload
+# %autoreload 1
 # %aimport utils.callbacks
 from utils.callbacks import call_mat_stim_trial_loader
 from utils.file import multi_index_from_dict, parse_parameter_from_string
@@ -26,7 +25,7 @@ save_csv_directory = "./data/hvc_pharm"
 save_pickle_path = os.path.join(save_csv_directory, f"{bird}.pickle")
 
 # any stimulus_trials containing call types NOT in this list are excluded (this includes unlabeled, which are stored as 'USV'!!)
-acceptable_call_labels = ["Call", "Stimulus"]
+acceptable_call_labels = ["Call", "Stimulus", "o"]
 
 files = [f for f in glob.glob(processed_directory) if not "PostBlock" in f]
 
@@ -49,6 +48,7 @@ def get_params_from_pharmacology(filepath):
     birdname, day, drug, time, datetime, block = params
 
     # good as is: birdname, drug
+
     # ignore datetime for now - leading zeros lost
 
     # day: remove leading "d", make int
@@ -91,14 +91,19 @@ for file in files:
                 verbose=False,
             )
         )
-    except TypeError:
+    except TypeError as e:
         print(f"Failed to make dataframe for file: {file}")
+        raise e
         continue
 
     params = get_params_from_pharmacology(file)
 
     # create multiindex: birdname, stim_trial_index, call_index
     stim_trials = multi_index_from_dict(stim_trials, params, keep_current_index=True)
+
+    stim_trials["notmat_filename"] = file
+    stim_trials["washout"] = ("post" in file) or ("washout" in file)
+
     df = pd.concat((df, stim_trials), axis="rows")
 
     rejected_trials = multi_index_from_dict(
@@ -124,6 +129,8 @@ print("Rejected trials:")
 rejected_trials_all
 
 # %%
+# show call types in rejected trials
+
 print(
     "Call types in rejected trials."
     + "\nLabel `USV` means an accepted call was not given a label."
@@ -141,18 +148,10 @@ rejected_trial_call_types
 # call_types_all.loc[~np.isnan(call_types_all.loc[:, label])]
 
 # %%
+# show all birds
+
 all_birds = list(set(df.index.get_level_values(0)))
 all_birds
-
-# %%
-# eliminate all block 0s - account for first loom bug
-
-# raise Exception('Make sure you want to do this! You will need to reload the data afterward if you want block 0 back.')
-
-# blocks = df.index.get_level_values(2)
-# df = df[blocks != 0]
-
-df
 
 # %%
 # plotting conveniences
@@ -162,7 +161,7 @@ df.reset_index(inplace=True)
 
 # add suffix "_washout"
 df["drug"] = df.apply(
-    lambda row: row["drug"] + "_washout" if row["time"] >= 6.5 else row["drug"], axis=1
+    lambda row: row["drug"] + "_washout" if row["washout"] else row["drug"], axis=1
 )
 
 # make washout day n + 0.5
