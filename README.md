@@ -1,5 +1,13 @@
 # Callback Analysis
 
+This repo was started to analyze loom experiments, but it eventually came to be useful for several projects. After iterating through many exploratory analysis for different datasets, this repo became bloated. I've cleaned it up by splitting off certain projects/analyses into new repositories (eg, `callback-breaths`; see below) and branches; what should be left here (at least in `main` branch) should be fairly bare-bones preprocessing code that can be used as templates for processing data.
+
+- Some repositories which have diverged:
+  - [loom-and-movement](https://github.com/cirorandazzo/loom-and-movement)
+  - [callback-breaths](https://github.com/cirorandazzo/callback-breaths)
+  - [hvc-pharm-analysis](https://github.com/cirorandazzo/hvc-pharm-analysis)
+  - [sig1r-analysis](https://github.com/cirorandazzo/sig1r-analysis)
+
 ## Usage
 
 > See [INSTALL.md](./docs/INSTALL.md) for installation instructions (to be done once).
@@ -28,30 +36,19 @@
 ## Other files
 
 - `kde.ipynb`: a first go at spline fitting
-- Loom-only experiment analyses
-    - `loom-only.ipynb`: analyze loom startle latency based on audio signal
-    - `movement.ipynb/.py`: analyze loom startle latency based on video frame difference
-- `videos-frame_alignment.ipynb`: demonstration of aligning video frames to audio using camera exposure channel in callback audio file
 
 TODO: .mat file writeups
-
-Utils (`./utils/`)
-- `deepsqueak.py`
-    - functions for processing deepsqueak outputs
-- `plot.py`
-    - functions for plotting
-- `video.py`
-    - functions for analyzing callback videos
-
 
 ## DataFrames
 
 TODO: update data structure documentation
 
 ### stim_trials
+
 Each row represents one stimulus and subsequent calls.
 
 Fields:
+
 - `trial_start_s`: start time of this stimulus in audio file
 - `trial_end_s`: end of trial; start time of *following* stimulus in audio file
 - `calls_in_range`: indices of calls in deepsqueak data that have *any segment* overlapping with (trial_start_s, trial_end_s); range exclusive to prevent inclusion of subsequent stimulus
@@ -63,6 +60,7 @@ Fields:
 ### rejected_trials
 
 As in `stim_trials`:
+
 - `trial_start_s`
 - `trial_end_s`
 - `stim_duration_s`
@@ -70,11 +68,11 @@ As in `stim_trials`:
 
 ### call_types
 
-Stores call types in each 
+Stores call types in each
 
 - `calls_index`: index. index of this stimulus in deepsqueak data.
 - (call type columns): count of non-stimulus call types occurring during each stimulus trial (or nan, if not found in this trial).
-    - made dynamically, with columns only created when this call type is found in at least one file 
+  - made dynamically, with columns only created when this call type is found in at least one file
 
 ### file_info (dict)
 
